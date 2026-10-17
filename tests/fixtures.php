@@ -93,6 +93,13 @@ am_fixture('am-convert', 'Conversion', "<!-- wp:table -->\n<figure class=\"wp-bl
     // Sibling links with nothing between them, as flex-layout cards produce.
     ."<!-- wp:html -->\n<div><a href=\"tel:0401234567\">0401234567</a><a href=\"mailto:am@example.invalid\">am@example.invalid</a><a href=\"https://example.com/more\">amMoreLink</a></div>\n<!-- /wp:html -->\n");
 
+// Slug collision: a draft with a published post's slug and an earlier date, which core allows (draft slugs are not
+// made unique) and which puts both into the singular main query, the published post first.
+am_fixture('am-collision', 'Slug collision', $p('amCollisionPublishedMarker'), ['post_date' => '2024-06-01 10:00:00']);
+$collisionDraft = ['post_title' => 'Slug collision draft', 'post_name' => 'am-collision', 'post_content' => $p('amCollisionDraftMarker'), 'post_status' => 'draft', 'post_date' => '2023-01-01 10:00:00', 'post_author' => get_current_user_id()];
+$existingDraft = get_posts(['title' => 'Slug collision draft', 'post_status' => 'draft', 'numberposts' => 1, 'fields' => 'ids']);
+$existingDraft === [] ? wp_insert_post($collisionDraft, true) : wp_update_post(['ID' => $existingDraft[0]] + $collisionDraft, true);
+
 // Nested rendering: a Query Loop whose Post Content and Post Excerpt blocks render another post.
 $nestedTag = term_exists('am-nested', 'post_tag') ?: wp_insert_term('am-nested', 'post_tag');
 $nestedSourceId = am_fixture('am-nested-source', 'Nested source', $p('amNestedSourceText [am_test /]'));

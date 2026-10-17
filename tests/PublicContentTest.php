@@ -58,6 +58,15 @@ it('lets a later-loaded plugin\'s login wall run first', function (): void {
         ->and(markdown('/am-post/?am_test=gated', cookieJar: signIn())->isMarkdown())->toBeTrue();
 });
 
+it('serves HTML and never a draft body when a same-slug draft collides with a published post', function (): void {
+    expect(browser('/am-collision/')->body)->toContain('amCollisionPublishedMarker')->not->toContain('amCollisionDraftMarker');
+
+    $response = markdown('/am-collision/');
+
+    expect($response->isMarkdown())->toBeFalse()
+        ->and($response->body)->not->toContain('amCollisionDraftMarker');
+});
+
 it('never serves a protected post to a visitor who knows its password', function (): void {
     $jar = enterPostPassword('am-secret');
 

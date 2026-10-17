@@ -90,11 +90,12 @@ function eligiblePost(): ?WP_Post
 
 /**
  * The content through the real the_content chain in the main loop, exactly as the signed-out HTML page gets it, so
- * every access gate a plugin hooks on the query or the_content applies, inside nested blocks too. Only comments are
- * switched off: comment blocks render empty and comment queries return nothing. Both are restored and the loop is
- * rewound afterwards, so the HTML fallback is unaffected.
+ * every access gate a plugin hooks on the query or the_content applies, inside nested blocks too. Only the eligible
+ * post is converted, whatever else the loop holds. Only comments are switched off: comment blocks render empty and
+ * comment queries return nothing. Both are restored and the loop is rewound afterwards, so the HTML fallback is
+ * unaffected.
  */
-function renderContent(): string
+function renderContent(WP_Post $post): string
 {
     global $wp_query;
     $noComments = fn (mixed $result, \WP_Comment_Query $query): array|int => $query->query_vars['count'] ? 0 : [];
@@ -108,7 +109,9 @@ function renderContent(): string
         $html = '';
         while (have_posts()) {
             the_post();
-            $html = apply_filters('the_content', get_the_content());
+            if (get_the_ID() === $post->ID) {
+                $html = apply_filters('the_content', get_the_content());
+            }
         }
 
         return $html;
@@ -117,12 +120,13 @@ function renderContent(): string
         array_walk($commentBlocks, fn (\WP_Block_Type $type, string $name) => $type->render_callback = $callbacks[$name]);
         $wp_query->rewind_posts();
         $wp_query->in_the_loop = false;
+        wp_reset_postdata();
     }
 }
 
 function render(WP_Post $post): string
 {
-    $html = renderContent();
+    $html = renderContent($post);
 
     // Remove non-content elements with everything inside them, innermost first; an unclosed one removes the rest.
     // This runs before kses because kses deletes disallowed tags but keeps the text between them.
@@ -251,11 +255,12 @@ add_action('template_redirect', function (): void {
 
     // Render as a signed-out visitor, so dynamic blocks never list private posts. The main query already ran as the
     // visitor, so run it again signed out: gates that decide at query time then see the same visitor as the rest of
-    // the render. If the post is gone for a signed-out visitor, serve the HTML page.
+    // the render. The query must then hold exactly the eligible post: core checks the status of the first post only
+    // and a draft may share a published post's slug, so a second post could be anything. Otherwise serve the HTML page.
     global $wp_query;
     wp_set_current_user(0);
     $wp_query->get_posts();
-    if (($wp_query->posts[0] ?? null)?->ID !== $post->ID) {
+    if ($wp_query->post_count !== 1 || $wp_query->posts[0]->ID !== $post->ID) {
         return;
     }
 
