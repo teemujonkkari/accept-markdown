@@ -134,10 +134,10 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 ## Testing Decisions
 
 - **One seam: HTTP.** All tests are black-box HTTP requests against a WordPress site with pretty permalinks and the plugin active. They assert only status, response headers and body text. No test calls plugin functions directly or inspects internal state.
-- **Target site.** The base URL comes from the `ACCEPT_MARKDOWN_BASE_URL` environment variable and defaults to `http://accept-markdown.local` (the Local dev site). CI points it at a disposable WordPress Playground instance.
+- **Target site.** The base URL comes from the `ACCEPT_MARKDOWN_BASE_URL` environment variable and defaults to `http://accept-markdown.local` (the Local dev site). CI points it at a disposable WordPress in Docker (the official `wordpress` and `wordpress:cli` images with MariaDB, `tests/compose.yml`), started by `bin/test-site`, which also works locally. Playground was considered and rejected: no documented way to pass the fixture password to wp-cli, and no documentation on HEAD, permalinks or header pass-through.
 - **A good test** sends one request with specific headers and asserts on the observable response. The Accept negotiation edge cases (stories 8 to 15, 43, 55) are covered as a table of Accept values to expected representation, each one HTTP request.
 - **Test mu-plugin.** One file in the test directory, installed into `wp-content/mu-plugins/`, holds every test hook: the test CPTs, a test shortcode, a `the_content` and a `render_block` filter that output markers, and the allow and output filters used by the tests, a `template_redirect` login wall registered after the plugin's handler, and two membership-style content gates: a `the_content` filter that swaps tagged posts for a teaser and a `the_post` action that rewrites one post in the loop.
-- **Fixtures** are created by one wp-cli script, run from the Local site shell for local dev and from the Playground blueprint in CI:
+- **Fixtures** are created by one wp-cli script, run from the Local site shell for local dev and by `bin/test-site` in Docker:
   - a normal published post
   - a published page
   - a published post of a public CPT that declares Markdown support
@@ -179,7 +179,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - The allow filter returning true for a password-protected post still returns HTML.
   - A `template_redirect` login wall registered after the plugin's handler, at the default priority, redirects a signed-out Markdown request to the login page instead of serving Markdown.
 - **Prior art:** the roots plugin's Pest suite used the same pattern (a request helper over a Playground server, parsed status and headers, Pest expectations). We reuse the pattern, not the code.
-- **CI** runs the suite against the minimum supported PHP (8.4) and the latest PHP, plus `composer audit`.
+- **CI** (`.github/workflows/test.yml`, on push to `main` and on pull requests) runs the suite against the minimum supported PHP (8.4) and the latest PHP (8.5), each a separate Docker site, plus `composer audit`.
 
 ## Out of Scope
 

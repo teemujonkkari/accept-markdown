@@ -1,0 +1,41 @@
+name: Tests
+
+# The HTTP suite against a disposable WordPress in Docker (tests/compose.yml), on the minimum supported PHP and the
+# latest, plus composer audit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    env:
+      ACCEPT_MARKDOWN_TEST_PASSWORD: ci-password
+      ACCEPT_MARKDOWN_WORDPRESS_IMAGE: php${{ matrix.php }}-apache
+      ACCEPT_MARKDOWN_CLI_IMAGE: cli-php${{ matrix.php }}
+      ACCEPT_MARKDOWN_BASE_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+
+      - run: composer install --no-interaction --no-progress
+
+      - run: composer audit
+
+      - name: Start the test site
+        run: bin/test-site up
+
+      - run: composer test
+
+      - name: WordPress logs
+        if: failure()
+        run: docker compose -f tests/compose.yml logs wordpress | tail -100

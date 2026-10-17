@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Usage: bin/test-site up|down
+#
+# Starts a disposable WordPress in Docker (tests/compose.yml) with the plugin active, the test mu-plugin installed
+# and the fixtures created, ready for `composer test`. `down` removes the containers and the database volume.
+#
+# Environment: ACCEPT_MARKDOWN_TEST_PASSWORD (required for up), ACCEPT_MARKDOWN_TEST_PORT (default 8080),
+# ACCEPT_MARKDOWN_WORDPRESS_IMAGE and ACCEPT_MARKDOWN_CLI_IMAGE (default php8.4-apache and cli-php8.4).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+compose=(docker compose -f tests/compose.yml)
+url="http://localhost:${ACCEPT_MARKDOWN_TEST_PORT:-8080}"
+
+wp() {
+    "${compose[@]}" run --rm -T cli "$@"
+}
+
+case "${1:-}" in
+    up)
+        : "${ACCEPT_MARKDOWN_TEST_PASSWORD:?set ACCEPT_MARKDOWN_TEST_PASSWORD}"
+        "${compose[@]}" up -d --wait wordpress
+
+        # The image copies WordPress into the volume on first start; wait until it answers.
+        for _ in $(seq 60); do
+            curl -fsS -o /dev/null "$url/wp-admin/install.php" && break
+            sleep 2
+        done
+
+        wp core install --url="$url" --title="Accept Markdown test" --admin_user=admin --admin_password=admin \
+            --admin_email=admin@example.invalid --skip-email
+        wp eval 'copy(WP_PLUGIN_DIR."/accept-markdown/tests/htaccess", ABSPATH.".htaccess") || exit(1);'
+        wp plugin activate accept-markdown
+        wp eval-file wp-content/plugins/accept-markdown/tests/fixtures.php
+
+        echo "Site ready. Run: ACCEPT_MARKDOWN_BASE_URL=$url composer test"
+        ;;
+    down)
+        "${compose[@]}" down -v
+        ;;
+    *)
+        echo "usage: bin/test-site up|down" >&2
+        exit 1
+        ;;
+esac
