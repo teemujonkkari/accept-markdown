@@ -100,6 +100,16 @@ am_fixture('am-nested', 'Nested', $p('Before the loop.')
     ."\n<div class=\"wp-block-query\"><!-- wp:post-template -->\n<!-- wp:post-content /-->\n<!-- wp:post-excerpt /-->\n<!-- /wp:post-template --></div>\n<!-- /wp:query -->\n\n"
     .$p('After the loop.'));
 
+// Gated content: the test mu-plugin's membership-style gates show signed-out visitors a teaser instead of the body.
+$membersTag = term_exists('am-members', 'post_tag') ?: wp_insert_term('am-members', 'post_tag');
+$membersId = am_fixture('am-members', 'Members only', $p('amMembersBodyMarker'));
+wp_set_post_tags($membersId, 'am-members');
+am_fixture('am-members-loop', 'Members only, gated in the loop', $p('amMembersLoopMarker'));
+am_fixture('am-members-index', 'Members index', $p('Before the members.')
+    .'<!-- wp:query {"queryId":3,"query":{"perPage":10,"postType":"post","inherit":false,"taxQuery":{"post_tag":['.(int) $membersTag['term_id'].']}}} -->'
+    ."\n<div class=\"wp-block-query\"><!-- wp:post-template -->\n<!-- wp:post-content /-->\n<!-- /wp:post-template --></div>\n<!-- /wp:query -->\n\n"
+    .$p('After the members.'));
+
 // Comment blocks, plus Latest Comments and a comment count, on a post with an approved comment.
 $commentsId = am_fixture('am-comments', 'Comments', $p('Before the comments.')
     ."<!-- wp:comments -->\n<div class=\"wp-block-comments\"><!-- wp:comments-title /-->\n<!-- wp:comment-template -->\n<!-- wp:comment-author-name /-->\n<!-- wp:comment-content /-->\n<!-- /wp:comment-template -->\n<!-- wp:post-comments-form /--></div>\n<!-- /wp:comments -->\n\n"

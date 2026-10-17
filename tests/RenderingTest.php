@@ -2,34 +2,29 @@
 
 declare(strict_types=1);
 
-it('never runs shortcodes or the_content filters, but keeps render_block output', function (): void {
+it('runs shortcodes, the_content filters and render_block filters, as the public page does', function (): void {
     $body = markdown('/am-shortcodes/')->body;
 
-    expect($body)->toContain('Self-closing:')->toContain('Enclosing:')->toContain('done.')
-        ->toContain('amPatternText')
+    expect($body)->toContain('Self-closing: amShortcodeOutput')->toContain('Enclosing: amShortcodeOutput done.')
+        ->toContain('Pattern text amShortcodeOutput amPatternText')
         ->toContain('amRenderBlockMarker')
-        ->not->toContain('amShortcodeOutput')
-        ->not->toContain('amEnclosed')
-        ->not->toContain('amTheContentMarker')
-        // Markdown escapes "[" and "_", so look for leaked shortcode text without the backslashes.
+        ->toContain('amTheContentMarker')
+        // Markdown escapes "[" and "_", so look for leftover shortcode text without the backslashes.
         ->and(str_replace('\\', '', $body))->not->toContain('[am_test');
 });
 
-it('never runs shortcodes or the_content filters in nested blocks', function (): void {
-    expect(browser('/am-nested/')->body)->toContain('amShortcodeOutput')->toContain('amTheContentMarker');
-
+it('renders nested blocks through the same chain', function (): void {
     $body = markdown('/am-nested/')->body;
 
-    expect($body)->toContain('Before the loop.')->toContain('amNestedSourceText')->toContain('After the loop.')
-        ->not->toContain('amShortcodeOutput')
-        ->not->toContain('amTheContentMarker')
+    expect($body)->toContain('Before the loop.')->toContain('amNestedSourceText amShortcodeOutput')->toContain('After the loop.')
+        ->toContain('amTheContentMarker')
         ->and(str_replace('\\', '', $body))->not->toContain('[am_test');
 });
 
 it('never shows WordPress comments, counts or forms, including through comment blocks', function (): void {
     expect(browser('/am-comments/')->body)->toContain('amBlockCommentMarker')->toContain('amCommentAuthorMarker');
 
-    expect(markdown('/am-comments/')->body)->toBe("# Comments\n\nBefore the comments.\n\nAfter the comments.\n");
+    expect(markdown('/am-comments/')->body)->toBe("# Comments\n\nBefore the comments.\n\nAfter the comments.\n\namTheContentMarker\n");
 });
 
 it('restores paragraphs in classic-editor posts', function (): void {

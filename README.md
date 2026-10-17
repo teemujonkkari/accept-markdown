@@ -122,32 +122,29 @@ A header longer than 4096 bytes or with more than 32 entries is treated as "not 
 
 ## Rendering
 
-The plugin never runs the `the_content` filter chain, so no other plugin can inject share buttons, ads or tracking into the output. It uses a fixed chain of core functions instead:
+The content comes from the same `the_content` chain, in the main loop, that the signed-out HTML page uses. After that the plugin only removes things:
 
 ```mermaid
 flowchart TD
-    P["post_content"] --> S1
-    subgraph ISO["Isolated while blocks render, restored afterwards"]
-        S1["1. do_blocks<br/>dynamic blocks render as on the page"]
-        I1["shortcodes output nothing"]
-        I2["the_content: core do_blocks and wpautop only"]
+    P["Main loop, signed out"] --> S1
+    subgraph ISO["While the loop runs, restored afterwards"]
+        S1["1. the_content chain<br/>blocks, shortcodes and every plugin's filter, as on the page"]
         I3["comment blocks render empty"]
         I4["comment queries return nothing"]
     end
-    S1 --> S2["2. strip_shortcodes<br/>removes tags left as text"]
-    S2 --> S3["3. wpautop<br/>only for classic content without blocks"]
-    S3 --> S4["4. Remove script, style, iframe, noscript,<br/>template, form, object, embed, svg<br/>with everything inside them"]
-    S4 --> S5["5. wp_kses_post<br/>drops javascript: links and disallowed markup"]
-    S5 --> S6["6. Flatten pre blocks, fix figure and figcaption"]
-    S6 --> S7["7. Convert to Markdown<br/>HTML comments and block delimiters dropped"]
+    S1 --> S4["2. Remove script, style, iframe, noscript,<br/>template, form, object, embed, svg<br/>with everything inside them"]
+    S4 --> S5["3. wp_kses_post<br/>drops javascript: links and disallowed markup"]
+    S5 --> S6["4. Flatten pre blocks, fix figure and figcaption"]
+    S6 --> S7["5. Convert to Markdown<br/>HTML comments and block delimiters dropped"]
     S7 --> T["# Title + body"]
 ```
 
 Notes on the chain:
 
-- **The restrictions hold inside nested blocks too.** A Query Loop with Post Content, a Post Excerpt or a Latest Posts excerpt renders *other* posts and runs `the_content` and shortcodes on them by itself. So while `do_blocks` runs, the plugin switches off every shortcode handler, reduces `the_content` to core's block rendering and paragraphs, empties every block with `comment` in its name, and makes comment queries return nothing. All of it is restored afterwards, so the normal HTML page is unaffected.
-- **Shortcodes are never executed**, not even by a `render_block` filter that calls `do_shortcode`. Tags left as text are stripped afterwards, and enclosing shortcodes are removed together with the content they wrap.
-- **Step 4 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. An element with no closing tag removes everything after it, so malformed markup fails closed.
+- **Why the real chain.** Membership and paywall plugins (Paid Memberships Pro, MemberPress, Restrict Content Pro, Members, WooCommerce Memberships) gate published posts by filtering `the_content` or rewriting the post on `the_post`. Such a post is still published, viewable and unprotected, so only that chain knows it is gated. An earlier version rendered raw `post_content` through a private chain and served those posts in full. The rule now: the plugin removes from what the page renders and never reconstructs content.
+- **Nested blocks go through the same chain.** A Query Loop with Post Content, a Post Excerpt or a Latest Posts excerpt calls `the_content` for the posts it renders, so the same gates apply to them.
+- **Shortcodes and third-party filters run**, as on the page. Share buttons or related-post text can appear; see Known trade-offs.
+- **Step 2 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. An element with no closing tag removes everything after it, so malformed markup fails closed.
 - **Code blocks** lose syntax-highlighter markup and become plain fenced code.
 - **Tables** become Markdown pipe tables.
 - **Images inside figures** are kept on their own line, followed by the caption.
@@ -239,7 +236,7 @@ The guiding rule: **the Markdown never exposes anything the public HTML page doe
 - Only the `Accept` header and the request method are read from the request. No query parameters, cookies or other headers.
 - Hard eligibility checks run before, and independently of, post type support and the filter.
 - Rendering happens as a signed-out visitor.
-- No shortcode handler and no `the_content` filter ever runs.
+- Content comes from the same `the_content` chain, in the main loop, that the signed-out HTML page uses, so membership and paywall gates apply to the Markdown.
 - Rendered HTML passes through the same post kses rules WordPress uses for untrusted authors, even when the content was written by a user with `unfiltered_html`.
 - Non-content elements are removed with their contents before conversion.
 - HTML comments and block delimiters are dropped.
@@ -258,10 +255,10 @@ The result: Markdown is never served to normal visitors from any cache. Agents r
 
 ## Known trade-offs
 
-- **Content that only exists inside a shortcode is missing.** Galleries, embeds or text wrapped in shortcodes do not appear in the Markdown. Content authored in blocks or classic HTML does.
-- **Dynamic blocks are kept.** Latest Posts, Query Loops and similar blocks render through `do_blocks`, as on the public page. Because rendering is signed out, they only show public content.
-- **Third-party `render_block` filters run.** `do_blocks` applies them, so their output can reach the Markdown. That output already appears on the public HTML page.
-- **Bare embed URLs stay as plain links.** Auto-embeds are not run. Embeds inside synced patterns are processed by core, as on the HTML page.
+- **Third-party `the_content` output appears.** Share buttons, related posts and similar text from other plugins can end up in the Markdown. Everything they add already appears on the public page. The alternative, a private rendering chain, bypassed membership plugins' content gates, so this is a deliberate choice. Trim with the `accept_markdown/output` filter if needed.
+- **Dynamic blocks are kept.** Latest Posts, Query Loops and similar blocks render as on the public page. Because rendering is signed out, they only show public content.
+- **Third-party `render_block` filters run.** Their output can reach the Markdown. That output already appears on the public HTML page.
+- **Embeds render as on the page.** An embed whose markup is only an iframe (for example YouTube) is removed with the iframe and leaves nothing. Embeds with a fallback blockquote keep their text and link.
 - **Page caches that answer early can serve HTML to agents.** A cache that serves from `advanced-cache.php` responds before plugins load, so a Markdown request can get a cached HTML page. The reverse never happens, because Markdown is never stored.
 - **A Markdown request whose rendering throws** falls back to the signed-out version of the HTML page.
 
@@ -332,7 +329,7 @@ composer test
 
 The fixture file is idempotent. It finds content by slug, creates it when missing and updates it otherwise. It never deletes anything.
 
-The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated`, and turns off canonical redirects.
+The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated` and two membership-style content gates, and turns off canonical redirects.
 
 ## License
 

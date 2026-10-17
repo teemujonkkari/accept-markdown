@@ -27,9 +27,20 @@ function am_test_register(): void
 }
 add_action('init', 'am_test_register');
 
-// Third-party content hooks: the_content must never reach Markdown, render_block does by decision.
-// The render_block filter also runs shortcodes, as some plugins do, so shortcodes must never execute during rendering.
+// Third-party content hooks: both reach Markdown by decision, as on the public page.
+// The render_block filter also runs shortcodes, as some plugins do.
 add_filter('the_content', fn (string $content): string => $content.'<p>amTheContentMarker</p>');
+
+// Access gates like membership plugins': posts tagged am-members show signed-out visitors a teaser through
+// the_content, and am-members-loop is rewritten in the loop through the_post, as WooCommerce Memberships does.
+add_filter('the_content', fn (string $content): string => has_term('am-members', 'post_tag') && ! is_user_logged_in()
+    ? '<p>amTeaserMarker</p>'
+    : $content);
+add_action('the_post', function (WP_Post $post): void {
+    if ($post->post_name === 'am-members-loop' && ! is_user_logged_in()) {
+        $post->post_content = '<p>amTeaserMarker</p>';
+    }
+});
 add_filter('render_block', fn (string $html, array $block): string => str_contains($block['attrs']['className'] ?? '', 'am-render')
     ? do_shortcode($html).'<p>amRenderBlockMarker</p>'
     : $html, 10, 2);

@@ -83,21 +83,15 @@ function eligiblePost(): ?WP_Post
 }
 
 /**
- * do_blocks() with no shortcode handlers, no third-party the_content filters, no comment blocks and no comment
- * queries. Nested blocks (Query Loops, Post Content, excerpts) run the_content and shortcodes themselves, so this
- * applies to the whole render. Everything is restored afterwards, so the HTML fallback is unaffected.
+ * The content through the real the_content chain in the main loop, exactly as the signed-out HTML page gets it, so
+ * every access gate a plugin hooks on the_post or the_content applies, inside nested blocks too. Only comments are
+ * switched off: comment blocks render empty and comment queries return nothing. Both are restored and the loop is
+ * rewound afterwards, so the HTML fallback is unaffected.
  */
-function renderBlocks(string $content): string
+function renderContent(): string
 {
-    global $wp_filter;
-    $theContent = $wp_filter['the_content'] ?? null;
-    $wp_filter['the_content'] = new \WP_Hook();
-    add_filter('the_content', 'do_blocks', 9);
-    add_filter('the_content', 'wpautop');
-
-    $noShortcodes = fn (): string => '';
+    global $wp_query;
     $noComments = fn (mixed $result, \WP_Comment_Query $query): array|int => $query->query_vars['count'] ? 0 : [];
-    add_filter('pre_do_shortcode_tag', $noShortcodes, PHP_INT_MAX);
     add_filter('comments_pre_query', $noComments, PHP_INT_MAX, 2);
 
     $commentBlocks = array_filter(\WP_Block_Type_Registry::get_instance()->get_all_registered(), fn (\WP_Block_Type $type): bool => str_contains($type->name, 'comment'));
@@ -105,22 +99,24 @@ function renderBlocks(string $content): string
     array_walk($commentBlocks, fn (\WP_Block_Type $type) => $type->render_callback = '__return_empty_string');
 
     try {
-        return do_blocks($content);
+        $html = '';
+        while (have_posts()) {
+            the_post();
+            $html = apply_filters('the_content', get_the_content());
+        }
+
+        return $html;
     } finally {
-        $wp_filter['the_content'] = $theContent;
-        remove_filter('pre_do_shortcode_tag', $noShortcodes, PHP_INT_MAX);
         remove_filter('comments_pre_query', $noComments, PHP_INT_MAX);
         array_walk($commentBlocks, fn (\WP_Block_Type $type, string $name) => $type->render_callback = $callbacks[$name]);
+        $wp_query->rewind_posts();
+        $wp_query->in_the_loop = false;
     }
 }
 
 function render(WP_Post $post): string
 {
-    // Shortcodes never run during rendering; this removes the tags left as text, with any enclosed content.
-    $html = strip_shortcodes(renderBlocks($post->post_content));
-    if (! has_blocks($post->post_content)) {
-        $html = wpautop($html);
-    }
+    $html = renderContent();
 
     // Remove non-content elements with everything inside them, innermost first; an unclosed one removes the rest.
     // This runs before kses because kses deletes disallowed tags but keeps the text between them.

@@ -52,9 +52,9 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 25. As a developer, I want one filter on the final Markdown string (receiving the Markdown and the post), so that I can add front matter or a footer.
 26. As a site owner, I want comments not supported in any form (no comment text, authors, counts, forms or comment feeds), so that commenter-controlled content can never reach the Markdown output.
 27. As a site owner, I want HTML comments in post content (including block delimiters) dropped from the output, so that hidden editor notes or markup never leak to Markdown consumers.
-28. As a site owner, I want shortcodes never executed, so that no shortcode handler from any plugin or theme runs on a Markdown request.
-29. As an AI agent, I want registered shortcode tags removed from the Markdown instead of appearing as literal `[tag]` text, including tags that arrive through rendered blocks such as synced patterns, so that the output contains no unrendered placeholders.
-30. As a site owner, I want no third-party `the_content` filters run on a Markdown request, so that other plugins cannot inject share buttons, ads, tracking or anything else into the output.
+28. As a site owner, I want the content rendered through the same `the_content` chain, in the main loop, that the signed-out HTML page uses, so that content gates from membership and paywall plugins (hooked on `the_post` or `the_content`) apply to the Markdown exactly as they apply to the page.
+29. As an AI agent, I want shortcodes and dynamic blocks rendered as on the page, so that galleries, shortcode-authored text and listings appear in the Markdown instead of being missing or left as `[tag]` text.
+30. As a site owner, I accept that third-party `the_content` output (share buttons, related posts, tracking text) can reach the Markdown, so that no second rendering chain exists that access-control plugins know nothing about. Everything it adds already appears on the public HTML page.
 31. As a site owner, I want feed requests (including single-post comment feeds) left untouched, so that RSS and Atom keep working and no comment content is exposed.
 32. As a site owner, I want non-GET/HEAD requests ignored, so that form submissions and other methods behave exactly as before.
 33. As a site owner, I want admin, REST, AJAX, cron and XML-RPC requests untouched, so that the plugin cannot affect the back end or the API.
@@ -93,30 +93,26 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - An output filter receiving the final Markdown string and the post.
   - Both use the `accept_markdown/` prefix: `accept_markdown/allowed` and `accept_markdown/output`.
 - **Signed-out rendering.** Once a post passes every eligibility check, the handler sets the current user to 0 before rendering. Nothing is restored. Core `WP_Query` adds private posts for signed-in users who can read them, so without this a Latest Posts or Query Loop block would list private posts in the Markdown. It is done in the handler rather than in `plugins_loaded` so admin and REST requests that happen to send a Markdown Accept header stay signed in and untouched. Side effect: a Markdown request whose rendering throws falls back to the signed-out HTML page, which is acceptable.
-- **Rendering.** A fixed chain of core functions only, never the `the_content` filter chain:
-  1. Render blocks with `do_blocks` in isolation, so dynamic core blocks produce their HTML as on the page. Nested blocks (Query Loops with Post Content or Post Excerpt, Latest Posts excerpts) run `the_content` and shortcodes on other posts by themselves, so the restrictions must hold for the whole render, not just the outer content. While `do_blocks` runs:
-     - the core `pre_do_shortcode_tag` filter makes every shortcode output nothing, so no shortcode handler executes anywhere, including from a `render_block` filter that calls `do_shortcode`;
-     - `the_content` holds only core's `do_blocks` and `wpautop`, so nested content renders without any third-party content filter;
+- **Rendering.** The same pipeline as the signed-out HTML page, followed only by removals:
+  1. Run the main loop (`have_posts`, `the_post`) with the current user set to 0 and apply the real `the_content` chain to `get_the_content()`. This is what a theme does, so every gate hooked on `the_post` (WooCommerce Memberships) or `the_content` (Paid Memberships Pro, MemberPress, Restrict Content Pro, Members) applies. Nested blocks (Query Loops with Post Content or Post Excerpt, Latest Posts excerpts) call `the_content` for the posts they render, so they go through the same gates. Blocks, shortcodes, texturize, smilies, auto-embeds and third-party content filters run as on the page. While the loop runs:
      - every registered block whose name contains `comment` renders empty (comments, comment template, comments title, comment form, latest comments, comment counts);
      - comment queries return nothing, which covers third-party blocks that list comments under another name, such as reviews.
 
-     All of this is restored in a `finally` block, so the HTML fallback after an exception renders normally.
-  2. Strip registered shortcodes with the core strip-shortcodes function, removing the tags left as text (from the post itself, synced patterns or nested posts). Enclosing shortcodes are removed together with their enclosed content.
-  3. Apply `wpautop` only when the raw content has no blocks, so classic-editor posts keep their paragraphs.
-  4. Remove the story 35 elements together with their content. An element with no closing tag removes everything after its opening tag, so malformed markup fails closed. This must run before kses, because kses deletes disallowed tags but keeps the text between them.
-  5. Pass the HTML through the WordPress post kses rules.
-  6. Apply the `<pre>` flattening and `<figure>`/`<figcaption>` block fixes from the prototype.
-  7. Convert with comment preservation off, so HTML comments and block delimiters are dropped. Consecutive blank lines, including whitespace-only lines, are collapsed to at most one.
+     Both are restored in a `finally` block and the loop is rewound, so the HTML fallback after an exception renders normally.
+  2. Remove the story 35 elements together with their content. An element with no closing tag removes everything after its opening tag, so malformed markup fails closed. This must run before kses, because kses deletes disallowed tags but keeps the text between them.
+  3. Pass the HTML through the WordPress post kses rules.
+  4. Apply the `<pre>` flattening and `<figure>`/`<figcaption>` block fixes from the prototype.
+  5. Convert with comment preservation off, so HTML comments and block delimiters are dropped. Consecutive blank lines, including whitespace-only lines, are collapsed to at most one.
 
-  Not run: shortcodes, auto-embeds (bare embed URLs stay as plain links), texturize, smilies, and any third-party content filter. WordPress comments are never queried or rendered.
-- **Converter.** league/html-to-markdown, prefixed into the plugin-private `AcceptMarkdown\Vendor` namespace with php-scoper (or an equivalent tool), pinned exact version, ATX headings, strip tags on, hard breaks on, table converter registered, and the story 35 list also set as the converter's remove-nodes option as a second line of defence after rendering step 4. There is one autoload path and no runtime class detection.
+  Never done: a private rendering chain built from raw `post_content`. The plugin only removes from what the page renders and never reconstructs content, because a reconstruction bypasses every access gate other plugins add. WordPress comments are never queried or rendered.
+- **Converter.** league/html-to-markdown, prefixed into the plugin-private `AcceptMarkdown\Vendor` namespace with php-scoper (or an equivalent tool), pinned exact version, ATX headings, strip tags on, hard breaks on, table converter registered, and the story 35 list also set as the converter's remove-nodes option as a second line of defence after rendering step 2. There is one autoload path and no runtime class detection.
 - **Hooks (exactly four):**
   - `init` at an early priority adding Markdown support to `post` and `page`.
   - An early hook (`plugins_loaded`) that tells page-cache plugins not to cache when the negotiator says Markdown.
   - `send_headers` adding `Vary: Accept` to every front-end response.
   - `template_redirect` at priority `PHP_INT_MAX` running the handler, so access gates that other plugins or the theme hook there (login walls, maintenance modes) redirect or exit first. Plugins load alphabetically, so at the default priority the handler would run and exit before most of them.
 
-  The temporary filters added and removed around `do_blocks` (rendering step 1) do not count as permanent hooks.
+  The temporary filters added and removed around the loop (rendering step 1) do not count as permanent hooks.
 - **Response contract for Markdown:**
   - Status 200.
   - Headers:
@@ -136,7 +132,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 - **One seam: HTTP.** All tests are black-box HTTP requests against a WordPress site with pretty permalinks and the plugin active. They assert only status, response headers and body text. No test calls plugin functions directly or inspects internal state.
 - **Target site.** The base URL comes from the `ACCEPT_MARKDOWN_BASE_URL` environment variable and defaults to `http://accept-markdown.local` (the Local dev site). CI points it at a disposable WordPress Playground instance.
 - **A good test** sends one request with specific headers and asserts on the observable response. The Accept negotiation edge cases (stories 8 to 15, 43, 55) are covered as a table of Accept values to expected representation, each one HTTP request.
-- **Test mu-plugin.** One file in the test directory, installed into `wp-content/mu-plugins/`, holds every test hook: the test CPTs, a test shortcode, a `the_content` and a `render_block` filter that output markers, and the allow and output filters used by the tests, and a `template_redirect` login wall registered after the plugin's handler.
+- **Test mu-plugin.** One file in the test directory, installed into `wp-content/mu-plugins/`, holds every test hook: the test CPTs, a test shortcode, a `the_content` and a `render_block` filter that output markers, and the allow and output filters used by the tests, a `template_redirect` login wall registered after the plugin's handler, and two membership-style content gates: a `the_content` filter that swaps tagged posts for a teaser and a `the_post` action that rewrites one post in the loop.
 - **Fixtures** are created by one wp-cli script, run from the Local site shell for local dev and from the Playground blueprint in CI:
   - a normal published post
   - a published page
@@ -152,19 +148,21 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - a synced pattern containing a registered shortcode, inserted into a published post
   - a published post with a pending autosave that contains a marker string
   - a private post with a marker string in its title, plus a published post containing a Latest Posts block and a Query Loop block, so both would list the private post for a signed-in administrator
+  - a post gated on `the_content`, a post gated on `the_post`, and a published post whose Query Loop renders the first one through a Post Content block
 - **Must-have security tests:**
   - Protected posts and pages, drafts, private and scheduled posts, and the non-public CPT that declares support each return HTML (never Markdown) with Markdown Accept.
   - The post, the page and the opted-in public CPT return Markdown; the public CPT without support returns HTML.
   - A public CPT that declares support and then has it removed with the remove-post-type-support call returns HTML.
-  - Shortcodes are never executed: the test shortcode's handler output never appears, and its `[tag]` text is absent too.
+  - Shortcodes render as on the page: the test shortcode's output appears and no `[tag]` text is left.
+  - The gated posts return their teaser and never their body in Markdown, signed in or not, and so does the published post whose Query Loop renders a gated post.
   - The approved comment's marker and the HTML comment's marker never appear in the Markdown.
-  - A Query Loop with Post Content and Post Excerpt rendering another post never executes that post's shortcode or `the_content` filters.
+  - A Query Loop with Post Content and Post Excerpt rendering another post runs that post through the same chain, so its shortcode output and `the_content` output appear.
   - A post with Comments, Comment Template, Comments Title, comment form, Latest Comments, comment count and a third-party comment-listing block renders as its own text only: no comment text, author, count or form.
-  - When rendering throws midway, the HTML fallback still runs shortcodes, `the_content` filters and shows comments, so everything switched off during rendering is restored.
-  - Output from a third-party `the_content` filter registered by a test mu-plugin never appears in the Markdown.
+  - When rendering throws midway, the HTML fallback still shows the post and its comments, so everything switched off during rendering is restored and the loop is rewound.
+  - Output from a third-party `the_content` filter registered by a test mu-plugin appears in the Markdown. This pins story 30, so a change to it is a deliberate decision.
   - Output from a third-party `render_block` filter registered by a test mu-plugin does appear in the Markdown. This pins the accepted trade-off in Further Notes, so a change to it is a deliberate decision.
   - The script, style, svg and unclosed-script markers never appear in the Markdown.
-  - The shortcode inside the synced pattern is neither executed nor present as `[tag]` text.
+  - The shortcode inside the synced pattern is executed and no `[tag]` text is left.
   - A preview request for the post with the pending autosave, made by a logged-in editor with Markdown Accept, returns HTML, and the autosave marker never appears in any Markdown response.
   - The post's `/embed/` URL returns HTML with Markdown Accept.
   - The post with the Latest Posts and Query Loop blocks, requested with Markdown Accept by a signed-in administrator, never contains the private post's marker.
@@ -183,7 +181,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 
 - `.md` URL suffixes, `?format=markdown` or any other query parameter, and any new URL or rewrite rule.
 - Markdown feeds, comment feeds, archive, category, tag, author, search and front-page listing output.
-- Comments in any form, and shortcodes in any form.
+- Comments in any form.
 - 406 Not Acceptable responses or any other change to non-Markdown responses beyond `Vary: Accept`.
 - Advertising the Markdown representation (Link header, `<link rel="alternate">`, RSS autodiscovery).
 - Diagnostic headers such as `X-Markdown-Source`.
@@ -200,14 +198,15 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - the password check on the post itself (it uses `post_password_required`, which honours the visitor's password cookie)
   - the preview and embed exclusions
   - the post type support opt-in for pages and CPTs
-  - the fixed rendering chain (it still uses `the_content`, which runs shortcodes)
+  - the main loop, the comment suppression and the loop rewind around `the_content`
   - the kses pass and the element removal before it
   - q-value clamping and whitespace tolerance
   - the security headers
   - the Accept size limits
   - the exception fallback
   - the HEAD handling
-- Known trade-off of skipping shortcodes: content that only exists inside a shortcode (galleries, embeds wrapped in shortcodes, enclosing shortcodes around text) is missing from the Markdown. This is accepted; the content we care about is authored in blocks or classic HTML.
+- Known trade-off of running the real `the_content` chain: share buttons, related posts and similar text from other plugins can appear in the Markdown. Accepted deliberately on 2026-10-17 after a security review. The previous design rendered from raw `post_content` through a private chain and served members-only posts in full, because membership plugins gate on `the_post` and `the_content` and know nothing about a second chain. Removing from the page's output is safe; reconstructing it is not. The output filter is the place to trim.
+- Known trade-off of auto-embeds: an embed whose markup is only an iframe (for example YouTube) is removed with the iframe and leaves nothing. Embeds with a fallback blockquote keep their text and link.
 - Dynamic blocks are kept by decision: they run through `do_blocks`, so blocks such as latest posts or query loops appear in the Markdown. They are core or plugin PHP that already runs on the public HTML page, so they expose nothing new.
 - Known trade-off of `do_blocks`: it runs third-party `render_block` filters, so their output can reach the Markdown. This is accepted as part of keeping dynamic blocks, for the same reason: that output already appears on the public HTML page. A test pins this behaviour.
 - Known limitation with page-cache plugins: a cache that serves pages from `advanced-cache.php`, such as WP Super Cache, answers before `plugins_loaded`, so a Markdown request can get a cached HTML page. The reverse never happens, because Markdown requests are never stored. Agents may therefore sometimes get HTML on such sites. This is accepted; fixing it would mean hooking into each cache plugin.

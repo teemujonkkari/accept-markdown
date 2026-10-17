@@ -33,6 +33,22 @@ it('reaches the non-viewable CPT post as HTML, so the check above is real', func
     expect(browser('/?am_test=internal')->body)->toContain('amInternalMarker');
 });
 
+it('honours content gates on the_content and the_post, signed in or not', function (string $path, string $marker): void {
+    $jar = signIn();
+
+    expect(browser($path, $jar)->body)->toContain($marker)
+        ->and(browser($path)->body)->toContain('amTeaserMarker')->not->toContain($marker);
+
+    foreach ([markdown($path), markdown($path, cookieJar: $jar)] as $response) {
+        expect($response->isMarkdown())->toBeTrue()
+            ->and($response->body)->toContain('amTeaserMarker')->not->toContain($marker);
+    }
+})->with([
+    'the_content gate' => ['/am-members/', 'amMembersBodyMarker'],
+    'the_post gate' => ['/am-members-loop/', 'amMembersLoopMarker'],
+    'gated post inside a Query Loop' => ['/am-members-index/', 'amMembersBodyMarker'],
+]);
+
 it('lets a later-loaded plugin\'s login wall run first', function (): void {
     $gated = markdown('/am-post/?am_test=gated');
 
