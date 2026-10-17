@@ -193,18 +193,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 
 ## Further Notes
 
-- A 108-line prototype exists from the review session and validated the Accept negotiation algorithm against nine edge cases. It predates several decisions in this spec, so it is a starting point only. It is missing:
-  - the status and viewable-type checks
-  - the password check on the post itself (it uses `post_password_required`, which honours the visitor's password cookie)
-  - the preview and embed exclusions
-  - the post type support opt-in for pages and CPTs
-  - the main loop, the comment suppression and the loop rewind around `the_content`
-  - the kses pass and the element removal before it
-  - q-value clamping and whitespace tolerance
-  - the security headers
-  - the Accept size limits
-  - the exception fallback
-  - the HEAD handling
+- The plugin grew out of a 108-line prototype from the review session, which validated the Accept negotiation algorithm against nine edge cases. Everything it had (the negotiator, the `<pre>` and `<figure>` fixes, the converter setup, the cache headers) was carried over, and the prototype has been removed.
 - Known trade-off of running the real `the_content` chain: share buttons, related posts and similar text from other plugins can appear in the Markdown. Accepted deliberately on 2026-10-17 after a security review. The previous design rendered from raw `post_content` through a private chain and served members-only posts in full, because membership plugins gate on `the_post` and `the_content` and know nothing about a second chain. Removing from the page's output is safe; reconstructing it is not. The output filter is the place to trim.
 - Known trade-off of auto-embeds: an embed whose markup is only an iframe (for example YouTube) is removed with the iframe and leaves nothing. Embeds with a fallback blockquote keep their text and link.
 - Dynamic blocks are kept by decision: they run through `do_blocks`, so blocks such as latest posts or query loops appear in the Markdown. They are core or plugin PHP that already runs on the public HTML page, so they expose nothing new.

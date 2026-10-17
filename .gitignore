@@ -3,5 +3,3 @@
 *.zip
 .claude/settings.local.json
 .DS_Store
-/notes/
-/tasks/
