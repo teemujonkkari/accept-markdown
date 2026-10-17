@@ -102,6 +102,13 @@ No. The only trigger is the `Accept` header. There are no new URLs or rewrite ru
 
 == Changelog ==
 
+= 0.4.1 =
+* Security: a draft sharing a published post's slug, with an earlier date, could replace the published post's Markdown body (reported by an external audit). The singular query must now hold exactly the eligible post, otherwise the URL gets the HTML page and no Markdown alternate link, and only the eligible post's ID is ever converted.
+* Non-content elements (script, style, iframe, svg and the like) are removed in linear time; many unclosed openers no longer make rendering slow.
+* Stray output printed while rendering is discarded, and all headers are decided before any is sent. Responses whose status another plugin already changed, and trackback URLs, are left alone.
+* The updater tolerates malformed release metadata and retries a failed check after one hour instead of twelve.
+* Documentation: one cache policy, the cacheable opt-out as an installation step for caches that ignore Vary, and the limits of template-layer gates.
+
 = 0.4.0 =
 * Eligible posts advertise the Markdown representation with a Link header and a <link rel="alternate"> tag in the head, so agents can discover it from a HEAD request or the page.
 * Security: the main query is run again signed out before rendering, so membership gates that decide at query time see the same signed-out visitor as the content filters.
