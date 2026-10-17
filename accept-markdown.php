@@ -71,12 +71,17 @@ function wantsMarkdown(): bool
     return $markdown > 0 && $markdown > quality($entries, 'text/html');
 }
 
-/** The queried post if it is public and allowed, else null. The hard checks run before support and the filter. */
+/**
+ * The queried post if it is public and allowed, else null. The hard checks run before support and the filter. The main
+ * query must hold exactly one post: core checks the status of the first post only and a draft may share a published
+ * post's slug, so a URL with a second post gets neither Markdown nor the alternate link until the collision is gone.
+ */
 function eligiblePost(): ?WP_Post
 {
     if (! in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)
         || is_admin() || wp_doing_ajax() || wp_doing_cron() || wp_is_serving_rest_request() || (defined('XMLRPC_REQUEST') && XMLRPC_REQUEST)
-        || is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular() || http_response_code() !== 200) {
+        || is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular() || $GLOBALS['wp_query']->post_count !== 1
+        || http_response_code() !== 200) {
         return null;
     }
 
@@ -266,8 +271,7 @@ add_action('template_redirect', function (): void {
 
     // Render as a signed-out visitor, so dynamic blocks never list private posts. The main query already ran as the
     // visitor, so run it again signed out: gates that decide at query time then see the same visitor as the rest of
-    // the render. The query must then hold exactly the eligible post: core checks the status of the first post only
-    // and a draft may share a published post's slug, so a second post could be anything. Otherwise serve the HTML page.
+    // the render. The re-run must again hold exactly the eligible post, otherwise serve the HTML page.
     global $wp_query;
     wp_set_current_user(0);
     $wp_query->get_posts();

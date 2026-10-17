@@ -27,10 +27,11 @@ $adminId = $admin ? $admin->ID : wp_insert_user(['user_login' => 'am-test-admin'
 wp_update_user(['ID' => $adminId, 'user_pass' => $password, 'show_admin_bar_front' => 'true']);
 wp_set_current_user($adminId);
 
-function am_fixture(string $slug, string $title, string $content, array $args = []): int
+/** Creates or updates a fixture post, found by slug and type unless $lookup names other get_posts() arguments. */
+function am_fixture(string $slug, string $title, string $content, array $args = [], array $lookup = []): int
 {
-    $type = $args['post_type'] ?? 'post';
-    $existing = get_posts(['name' => $slug, 'post_type' => $type, 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids']);
+    $lookup = $lookup ?: ['name' => $slug, 'post_type' => $args['post_type'] ?? 'post', 'post_status' => 'any'];
+    $existing = get_posts($lookup + ['numberposts' => 1, 'fields' => 'ids']);
     $post = $args + ['post_name' => $slug, 'post_title' => $title, 'post_content' => $content, 'post_status' => 'publish', 'post_author' => get_current_user_id()];
 
     // Existing fixtures are updated in place, so fixture changes reach the site without deleting anything.
@@ -104,9 +105,7 @@ am_fixture('am-convert', 'Conversion', "<!-- wp:table -->\n<figure class=\"wp-bl
 // Slug collision: a draft with a published post's slug and an earlier date, which core allows (draft slugs are not
 // made unique) and which puts both into the singular main query, the published post first.
 am_fixture('am-collision', 'Slug collision', $p('amCollisionPublishedMarker'), ['post_date' => '2024-06-01 10:00:00']);
-$collisionDraft = ['post_title' => 'Slug collision draft', 'post_name' => 'am-collision', 'post_content' => $p('amCollisionDraftMarker'), 'post_status' => 'draft', 'post_date' => '2023-01-01 10:00:00', 'post_author' => get_current_user_id()];
-$existingDraft = get_posts(['title' => 'Slug collision draft', 'post_status' => 'draft', 'numberposts' => 1, 'fields' => 'ids']);
-$existingDraft === [] ? wp_insert_post($collisionDraft, true) : wp_update_post(['ID' => $existingDraft[0]] + $collisionDraft, true);
+am_fixture('am-collision', 'Slug collision draft', $p('amCollisionDraftMarker'), ['post_status' => 'draft', 'post_date' => '2023-01-01 10:00:00'], ['title' => 'Slug collision draft', 'post_status' => 'draft']);
 
 // Nested rendering: a Query Loop whose Post Content and Post Excerpt blocks render another post.
 $nestedTag = term_exists('am-nested', 'post_tag') ?: wp_insert_term('am-nested', 'post_tag');

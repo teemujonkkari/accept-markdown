@@ -287,7 +287,7 @@ The same URL serves two representations, so caches must not mix them up:
 
 - Every front-end response carries `Vary: Accept`, which standards-compliant caches honour. They store Markdown and HTML as separate variants of the URL and serve each to the clients that asked for it, so Markdown is cached exactly like the HTML page. The plugin sends no `Cache-Control` of its own.
 - On Markdown requests the plugin defines `DONOTCACHEPAGE`, which WordPress page-cache plugins such as WP Super Cache respect. They key on the URL alone, so they must not store Markdown at all.
-- Behind a CDN that ignores `Vary`, return false from `accept_markdown/cacheable` and Markdown is sent with `Cache-Control: no-store, private` instead.
+- Behind a cache that stores HTML and ignores `Vary`, the required step in [Installation](#installation) (`accept_markdown/cacheable` returning false) makes Markdown `Cache-Control: no-store, private` instead, so that cache never stores it.
 
 The result on Seravo, the primary hosting target: the first Markdown request for a post hits PHP, every later one is served by Nginx until the page is purged, and browsers never see a Markdown variant.
 
@@ -300,8 +300,8 @@ Two questions for any cache: does it keep the two representations apart (`Vary: 
 | Nginx cache on Seravo | Yes | Never | No | Honours the standard `Vary` header. Tested on a production site, works without configuration. |
 | WP Super Cache and other `advanced-cache.php` plugins | No | Never | Possible | They answer before `plugins_loaded`, so a cached HTML page is served to Markdown requests. `DONOTCACHEPAGE` keeps Markdown out of the cache. |
 | LiteSpeed Cache (LSCache) | No | Never | Yes, until configured | The server answers from its cache before PHP runs and does not key on `Vary: Accept`. The plugin respects `DONOTCACHEPAGE`, so Markdown is never stored. Add the rewrite rule below. |
-| Varnish, Nginx FastCGI cache with `Vary` ignored, other server-level caches | Depends | Possible | Possible | If the cache ignores `Vary`, return false from `accept_markdown/cacheable` and bypass the cache when the `Accept` header mentions `text/markdown`, or configure the cache to key on `Accept`. |
-| Cloudflare and CDNs that ignore `Vary` | Depends | Possible | Possible | Cloudflare does not cache HTML by default, so there is nothing to mix up. With a cache-everything rule, return false from `accept_markdown/cacheable` and tell the CDN to bypass or vary on `Accept`. |
+| Varnish, Nginx FastCGI cache with `Vary` ignored, other server-level caches | Depends | Possible | Possible | If the cache ignores `Vary`, the cacheable opt-out from Installation is required. Also bypass the cache when the `Accept` header mentions `text/markdown`, or configure the cache to key on `Accept`. |
+| Cloudflare and CDNs that ignore `Vary` | Depends | Possible | Possible | Cloudflare does not cache HTML by default, so there is nothing to mix up. With a cache-everything rule, the cacheable opt-out from Installation is required. Also tell the CDN to bypass or vary on `Accept`. |
 
 **LiteSpeed Cache.** Add this to the site's `.htaccess`, above the WordPress block:
 
@@ -430,7 +430,7 @@ Versions follow semver from the commit types: `feat` bumps minor, `fix`, `docs` 
 
 The tag triggers `.github/workflows/release.yml`, which verifies the version, zips `accept-markdown.php`, `readme.txt`, `LICENSE` and `vendor_prefixed/` under an `accept-markdown/` folder and publishes a GitHub release with the zip attached. Install it by uploading the zip in WordPress or unpacking it into `wp-content/plugins/`.
 
-The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated` and two membership-style content gates, and turns off canonical redirects.
+The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks all three filters, adds a login wall for `?am_test=gated`, a 403 for `?am_test=forbidden`, a stray-output content filter and two membership-style content gates, and turns off canonical redirects.
 
 ## License
 

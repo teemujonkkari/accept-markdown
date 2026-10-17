@@ -59,7 +59,10 @@ it('lets a later-loaded plugin\'s login wall run first', function (): void {
 });
 
 it('serves HTML and never a draft body when a same-slug draft collides with a published post', function (): void {
-    expect(browser('/am-collision/')->body)->toContain('amCollisionPublishedMarker')->not->toContain('amCollisionDraftMarker');
+    $html = browser('/am-collision/');
+
+    expect($html->body)->toContain('amCollisionPublishedMarker')->not->toContain('amCollisionDraftMarker')->not->toContain('type="text/markdown"')
+        ->and((string) $html->header('link'))->not->toContain('text/markdown');
 
     $response = markdown('/am-collision/');
 
