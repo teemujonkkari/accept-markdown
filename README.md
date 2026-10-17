@@ -294,6 +294,7 @@ tests/
 bin/release                  Bumps the version, commits and tags a release
 .github/workflows/release.yml  Builds the zip and publishes the GitHub release on a v* tag
 SPEC.md                      The specification
+CLAUDE.md, docs/agents/      Instructions for coding agents (issue tracker, triage labels, domain docs)
 ```
 
 For local development, symlink the repo into a site's `wp-content/plugins/accept-markdown`.
