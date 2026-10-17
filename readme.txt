@@ -78,7 +78,7 @@ Updates appear on the Plugins screen like any other plugin's, fetched from GitHu
 
 = Where do updates come from? =
 
-From [GitHub releases](https://github.com/teemujonkkari/accept-markdown/releases), not WordPress.org. The plugin header's `Update URI` tells WordPress to ask the plugin instead of the directory, and the plugin fetches the latest release from the GitHub API, cached for 12 hours. Only a release zip from this repository is ever offered.
+From [GitHub releases](https://github.com/teemujonkkari/accept-markdown/releases), not WordPress.org. The plugin header's `Update URI` tells WordPress to ask the plugin instead of the directory, and the plugin fetches the latest release from the GitHub API, cached for 12 hours (one hour after a failed call). Only a release zip from this repository is ever offered.
 
 = Does this change my site for normal visitors? =
 

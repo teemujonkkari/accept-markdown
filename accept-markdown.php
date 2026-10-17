@@ -168,7 +168,8 @@ add_action('init', function (): void {
 }, 1);
 
 /**
- * The latest GitHub release as version, package URL and notes, cached for 12 hours; empty when there is none usable.
+ * The latest GitHub release as version, package URL and notes, cached for 12 hours; empty, and cached for one hour,
+ * when the call failed or nothing usable came back.
  * Only the tag name and the notes are taken from the API: the package URL is built from the tag under this
  * repository and must be one of the release's assets, so nothing outside the repository can be offered as an update.
  *
@@ -185,10 +186,12 @@ function latestRelease(): array
     $body = json_decode((string) wp_remote_retrieve_body($response), true);
     $version = ltrim((string) ($body['tag_name'] ?? ''), 'v');
     $package = 'https://github.com/'.REPO."/releases/download/v$version/accept-markdown-$version.zip";
-    $release = preg_match('/^\d+\.\d+\.\d+$/', $version) === 1 && in_array($package, array_column($body['assets'] ?? [], 'browser_download_url'), true)
+    $assets = is_array($body['assets'] ?? null) ? $body['assets'] : [];
+    $release = preg_match('/^\d+\.\d+\.\d+\z/', $version) === 1 && in_array($package, array_column($assets, 'browser_download_url'), true)
         ? ['version' => $version, 'package' => $package, 'notes' => (string) ($body['body'] ?? '')]
         : [];
-    set_site_transient('accept_markdown_release', $release, 12 * HOUR_IN_SECONDS);
+    // A failed or unusable call is retried sooner than a good one is re-checked.
+    set_site_transient('accept_markdown_release', $release, ($release === [] ? 1 : 12) * HOUR_IN_SECONDS);
 
     return $release;
 }
