@@ -94,7 +94,7 @@ Because the plugin renders through the real `the_content` chain, the same one th
 
 = Will my cache serve Markdown to browsers? =
 
-Not with a standards-compliant HTTP cache: every response carries `Vary: Accept`, so the cache stores Markdown and HTML separately and serves each to the clients that asked for it. Seravo's Nginx cache does this without configuration. WordPress page-cache plugins key on the URL alone, so the plugin defines `DONOTCACHEPAGE` to keep Markdown out of them. Behind a CDN that ignores `Vary`, return false from the `accept_markdown/cacheable` filter and Markdown is sent with `no-store`.
+Not with a standards-compliant HTTP cache: every response carries `Vary: Accept`, so the cache stores Markdown and HTML separately and serves each to the clients that asked for it. Seravo's Nginx cache does this without configuration. WordPress page-cache plugins key on the URL alone, so the plugin defines `DONOTCACHEPAGE` to keep Markdown out of them. Behind a CDN or proxy that stores HTML and ignores `Vary` (Cloudflare with a cache-everything rule, for example), add `add_filter('accept_markdown/cacheable', '__return_false');` before activating: until that filter is in place, such a cache stores a Markdown body under the page URL and serves it to visitors.
 
 = Is there a `.md` URL or a query parameter? =
 

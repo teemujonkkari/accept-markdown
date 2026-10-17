@@ -40,6 +40,12 @@ The plugin is not in the WordPress.org plugin directory, but it updates through 
 
 Posts and pages are served as Markdown straight away. Custom post types are not, until they opt in (see [Post types](#post-types)).
 
+**One required step for sites behind a cache that stores HTML and ignores `Vary`** (Cloudflare with a cache-everything rule, Varnish or Nginx configured to ignore `Vary`): add this filter before activating, or that cache will store a Markdown body under the page URL and serve it to visitors until you do. Standards-compliant caches, Seravo's Nginx among them, need nothing. See [Caching](#caching).
+
+```php
+add_filter('accept_markdown/cacheable', '__return_false');
+```
+
 To check it works:
 
 ```sh
@@ -147,6 +153,7 @@ flowchart TD
 Notes on the chain:
 
 - **Why the real chain.** Membership and paywall plugins (Paid Memberships Pro, MemberPress, Restrict Content Pro, Members, WooCommerce Memberships) gate published posts by filtering `the_content` or rewriting the post object in the query results. Such a post is still published, viewable and unprotected, so only that chain knows it is gated. An earlier version rendered raw `post_content` through a private chain and served those posts in full. The rule now: the plugin removes from what the page renders and never reconstructs content.
+- **Gates in the template layer do not run.** The handler serves Markdown and exits on `template_redirect`, so a gate on `template_include`, `get_header`, inside a theme template file, or on `template_redirect` registered after this plugin at the same last priority never runs for a Markdown request. This is the same exposure core gives a published post through the REST API, feeds and oEmbed. Gates on the query, on `the_content` and on `template_redirect` before the handler are honoured.
 - **Nested blocks go through the same chain.** A Query Loop with Post Content, a Post Excerpt or a Latest Posts excerpt calls `the_content` for the posts it renders, so the same gates apply to them.
 - **Shortcodes and third-party filters run**, as on the page. Share buttons or related-post text can appear; see Known trade-offs.
 - **Step 2 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. Closed elements go innermost first, then one pass removes everything from the first unclosed opener to the end, so malformed markup fails closed and a run of unclosed openers costs one pass, not one per opener.
@@ -226,6 +233,8 @@ Support is necessary but not sufficient. A post type that declares support still
 ### `accept_markdown/allowed`
 
 Decides per post. Receives the default (true when the post type has support) and the post.
+
+Two things to know when writing one: it runs for the real visitor, before the plugin signs out for rendering, so `current_user_can()` sees the signed-in user while the Markdown itself is rendered signed out; and it runs on every singular front-end request, not only Markdown ones, because the discovery header and tag use the same decision.
 
 ```php
 // Keep one post out of Markdown.

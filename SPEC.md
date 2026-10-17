@@ -21,7 +21,7 @@ A single-file WordPress plugin, PHP 8.4 minimum, with no settings, no tables, no
 
 When a front-end GET or HEAD request for a single, published, publicly viewable, non-password-protected post, page or opted-in custom post type carries an `Accept` header that prefers `text/markdown` over `text/html`, the plugin responds with the post title and rendered content converted to Markdown. In every other case it does nothing and WordPress renders HTML exactly as before, except that every front-end response carries `Vary: Accept`.
 
-Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbehaving cache or browser cannot turn them into a problem for normal visitors.
+Markdown responses are cached by the HTTP cache in front of the site exactly like the HTML page, kept apart from it by `Vary: Accept`, and are sniff-proof and sandboxed, so a browser cannot turn them into a problem. The one cache that cannot keep them apart, a CDN or proxy that stores HTML and ignores `Vary`, is handled by the cacheable filter, which switches that site's Markdown to `no-store`.
 
 ## User Stories
 
