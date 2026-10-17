@@ -76,8 +76,7 @@ function eligiblePost(): ?WP_Post
 {
     if (! in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)
         || is_admin() || wp_doing_ajax() || wp_doing_cron() || wp_is_serving_rest_request() || (defined('XMLRPC_REQUEST') && XMLRPC_REQUEST)
-        || is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular()
-        || http_response_code() !== 200 || headers_sent()) {
+        || is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular() || http_response_code() !== 200) {
         return null;
     }
 
@@ -248,6 +247,11 @@ add_action('wp_head', function (): void {
 
 // Last, so other plugins' and the theme's access gates (login walls, maintenance modes) redirect or exit first.
 add_action('template_redirect', function (): void {
+    // Something already printed output, so no header of ours can be sent: leave the response alone.
+    if (headers_sent()) {
+        return;
+    }
+
     $post = eligiblePost();
     if ($post) {
         // Tell clients that look for alternates (HEAD included) that this URL also serves Markdown.
