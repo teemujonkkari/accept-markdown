@@ -124,26 +124,33 @@ The plugin never runs the `the_content` filter chain, so no other plugin can inj
 
 ```mermaid
 flowchart TD
-    P["post_content"] --> S1["1. strip_shortcodes"]
-    S1 --> S2["2. do_blocks<br/>dynamic blocks render as on the page"]
-    S2 --> S3["3. strip_shortcodes again<br/>catches shortcodes from synced patterns"]
-    S3 --> S4["4. wpautop<br/>only for classic content without blocks"]
-    S4 --> S5["5. Remove script, style, iframe, noscript,<br/>template, form, object, embed, svg<br/>with everything inside them"]
-    S5 --> S6["6. wp_kses_post<br/>drops javascript: links and disallowed markup"]
-    S6 --> S7["7. Flatten pre blocks, fix figure and figcaption"]
-    S7 --> S8["8. Convert to Markdown<br/>HTML comments and block delimiters dropped"]
-    S8 --> T["# Title + body"]
+    P["post_content"] --> S1
+    subgraph ISO["Isolated while blocks render, restored afterwards"]
+        S1["1. do_blocks<br/>dynamic blocks render as on the page"]
+        I1["shortcodes output nothing"]
+        I2["the_content: core do_blocks and wpautop only"]
+        I3["comment blocks render empty"]
+        I4["comment queries return nothing"]
+    end
+    S1 --> S2["2. strip_shortcodes<br/>removes tags left as text"]
+    S2 --> S3["3. wpautop<br/>only for classic content without blocks"]
+    S3 --> S4["4. Remove script, style, iframe, noscript,<br/>template, form, object, embed, svg<br/>with everything inside them"]
+    S4 --> S5["5. wp_kses_post<br/>drops javascript: links and disallowed markup"]
+    S5 --> S6["6. Flatten pre blocks, fix figure and figcaption"]
+    S6 --> S7["7. Convert to Markdown<br/>HTML comments and block delimiters dropped"]
+    S7 --> T["# Title + body"]
 ```
 
 Notes on the chain:
 
-- **Shortcodes are never executed.** They are stripped before `do_blocks` so that a `render_block` filter which runs shortcodes has nothing to run, and again afterwards to remove tags that arrived through rendered blocks. Enclosing shortcodes are removed together with the content they wrap.
-- **Step 5 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. An element with no closing tag removes everything after it, so malformed markup fails closed.
+- **The restrictions hold inside nested blocks too.** A Query Loop with Post Content, a Post Excerpt or a Latest Posts excerpt renders *other* posts and runs `the_content` and shortcodes on them by itself. So while `do_blocks` runs, the plugin switches off every shortcode handler, reduces `the_content` to core's block rendering and paragraphs, empties every block with `comment` in its name, and makes comment queries return nothing. All of it is restored afterwards, so the normal HTML page is unaffected.
+- **Shortcodes are never executed**, not even by a `render_block` filter that calls `do_shortcode`. Tags left as text are stripped afterwards, and enclosing shortcodes are removed together with the content they wrap.
+- **Step 4 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. An element with no closing tag removes everything after it, so malformed markup fails closed.
 - **Code blocks** lose syntax-highlighter markup and become plain fenced code.
 - **Tables** become Markdown pipe tables.
 - **Images inside figures** are kept on their own line, followed by the caption.
 - **The title** is entity-decoded, stripped of tags and collapsed to a single line, so it cannot inject extra Markdown structure.
-- **Comments** (WordPress comments) are never queried or rendered.
+- **Comments** (WordPress comments) are never queried or rendered: no comment text, authors, counts, forms or Latest Comments, even when the post contains comment blocks.
 
 Output is `# <title>`, a blank line, then the body, with at most one blank line in a row.
 

@@ -91,6 +91,32 @@ am_fixture('am-convert', 'Conversion', "<!-- wp:table -->\n<figure class=\"wp-bl
     ."<!-- wp:image -->\n<figure class=\"wp-block-image\"><img src=\"https://example.com/image.png\" alt=\"An image\"/><figcaption class=\"wp-element-caption\">amCaptionMarker</figcaption></figure>\n<!-- /wp:image -->\n\n"
     .$p('Paragraph after the figure.'));
 
+// Nested rendering: a Query Loop whose Post Content and Post Excerpt blocks render another post.
+$nestedTag = term_exists('am-nested', 'post_tag') ?: wp_insert_term('am-nested', 'post_tag');
+$nestedSourceId = am_fixture('am-nested-source', 'Nested source', $p('amNestedSourceText [am_test /]'));
+wp_set_post_tags($nestedSourceId, 'am-nested');
+am_fixture('am-nested', 'Nested', $p('Before the loop.')
+    .'<!-- wp:query {"queryId":2,"query":{"perPage":10,"postType":"post","inherit":false,"taxQuery":{"post_tag":['.(int) $nestedTag['term_id'].']}}} -->'
+    ."\n<div class=\"wp-block-query\"><!-- wp:post-template -->\n<!-- wp:post-content /-->\n<!-- wp:post-excerpt /-->\n<!-- /wp:post-template --></div>\n<!-- /wp:query -->\n\n"
+    .$p('After the loop.'));
+
+// Comment blocks, plus Latest Comments and a comment count, on a post with an approved comment.
+$commentsId = am_fixture('am-comments', 'Comments', $p('Before the comments.')
+    ."<!-- wp:comments -->\n<div class=\"wp-block-comments\"><!-- wp:comments-title /-->\n<!-- wp:comment-template -->\n<!-- wp:comment-author-name /-->\n<!-- wp:comment-content /-->\n<!-- /wp:comment-template -->\n<!-- wp:post-comments-form /--></div>\n<!-- /wp:comments -->\n\n"
+    ."<!-- wp:latest-comments /-->\n\n<!-- wp:post-comments-count /-->\n\n<!-- wp:am/feedback /-->\n\n"
+    .$p('After the comments.'));
+$comment = ['comment_post_ID' => $commentsId, 'comment_content' => 'amBlockCommentMarker', 'comment_approved' => 1, 'comment_author' => 'amCommentAuthorMarker'];
+$existingComment = get_comments(['post_id' => $commentsId, 'number' => 1, 'fields' => 'ids']);
+$existingComment === [] ? wp_insert_comment($comment) : wp_update_comment(['comment_ID' => $existingComment[0]] + $comment);
+
+// Rendering throws midway; the HTML fallback must still have comments, shortcodes and the_content filters.
+$throwsRenderId = am_fixture('am-throws-render', 'Render throws', $p('Before the throw. [am_test /]')
+    .$p('Throws during Markdown rendering.', 'am-throw')
+    ."<!-- wp:comments -->\n<div class=\"wp-block-comments\"><!-- wp:comment-template -->\n<!-- wp:comment-content /-->\n<!-- /wp:comment-template --></div>\n<!-- /wp:comments -->");
+$comment = ['comment_post_ID' => $throwsRenderId, 'comment_content' => 'amFallbackCommentMarker', 'comment_approved' => 1, 'comment_author' => 'Commenter'];
+$existingComment = get_comments(['post_id' => $throwsRenderId, 'number' => 1, 'fields' => 'ids']);
+$existingComment === [] ? wp_insert_comment($comment) : wp_update_comment(['comment_ID' => $existingComment[0]] + $comment);
+
 update_option('permalink_structure', '/%postname%/');
 flush_rewrite_rules();
 

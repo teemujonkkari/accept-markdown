@@ -21,15 +21,27 @@ function am_test_register(): void
     remove_post_type_support('am_removed', 'accept-markdown');
 
     add_shortcode('am_test', fn (): string => 'amShortcodeOutput');
+
+    // A third-party block that lists comments without "comment" in its name, like a reviews block.
+    register_block_type('am/feedback', ['render_callback' => fn (): string => '<p>'.implode(' ', wp_list_pluck(get_comments(['number' => 5]), 'comment_content')).'</p>']);
 }
 add_action('init', 'am_test_register');
 
 // Third-party content hooks: the_content must never reach Markdown, render_block does by decision.
-// The render_block filter also runs shortcodes, as some plugins do, so shortcodes must be gone before do_blocks.
+// The render_block filter also runs shortcodes, as some plugins do, so shortcodes must never execute during rendering.
 add_filter('the_content', fn (string $content): string => $content.'<p>amTheContentMarker</p>');
 add_filter('render_block', fn (string $html, array $block): string => str_contains($block['attrs']['className'] ?? '', 'am-render')
     ? do_shortcode($html).'<p>amRenderBlockMarker</p>'
     : $html, 10, 2);
+
+// Throws only while Accept Markdown renders (its temporary comments_pre_query filter is present), to test the fallback.
+add_filter('render_block', function (string $html, array $block): string {
+    if (str_contains($block['attrs']['className'] ?? '', 'am-throw') && has_filter('comments_pre_query')) {
+        throw new RuntimeException('amRenderExceptionMarker');
+    }
+
+    return $html;
+}, 10, 2);
 
 add_filter('accept_markdown/allowed', fn (bool $allowed, WP_Post $post): bool => match ($post->post_name) {
     'am-protected' => true,

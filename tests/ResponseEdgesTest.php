@@ -23,3 +23,12 @@ it('falls back to the normal HTML page when rendering throws', function (): void
         ->and($response->isMarkdown())->toBeFalse()
         ->and($response->body)->toContain('amThrowsMarker')->not->toContain('amExceptionMarker');
 });
+
+it('restores shortcodes, the_content filters and comments when rendering throws midway', function (): void {
+    $response = markdown('/am-throws-render/');
+
+    expect($response->status)->toBe(200)
+        ->and($response->isMarkdown())->toBeFalse()
+        ->and($response->body)->toContain('amShortcodeOutput')->toContain('amTheContentMarker')->toContain('amFallbackCommentMarker')
+        ->not->toContain('amRenderExceptionMarker');
+});

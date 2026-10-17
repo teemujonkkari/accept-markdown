@@ -15,6 +15,23 @@ it('never runs shortcodes or the_content filters, but keeps render_block output'
         ->and(str_replace('\\', '', $body))->not->toContain('[am_test');
 });
 
+it('never runs shortcodes or the_content filters in nested blocks', function (): void {
+    expect(browser('/am-nested/')->body)->toContain('amShortcodeOutput')->toContain('amTheContentMarker');
+
+    $body = markdown('/am-nested/')->body;
+
+    expect($body)->toContain('Before the loop.')->toContain('amNestedSourceText')->toContain('After the loop.')
+        ->not->toContain('amShortcodeOutput')
+        ->not->toContain('amTheContentMarker')
+        ->and(str_replace('\\', '', $body))->not->toContain('[am_test');
+});
+
+it('never shows WordPress comments, counts or forms, including through comment blocks', function (): void {
+    expect(browser('/am-comments/')->body)->toContain('amBlockCommentMarker')->toContain('amCommentAuthorMarker');
+
+    expect(markdown('/am-comments/')->body)->toBe("# Comments\n\nBefore the comments.\n\nAfter the comments.\n");
+});
+
 it('restores paragraphs in classic-editor posts', function (): void {
     expect(markdown('/am-classic/')->body)->toContain("First classic paragraph.\n\nSecond classic paragraph.");
 });

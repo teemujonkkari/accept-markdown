@@ -82,9 +82,42 @@ function eligiblePost(): ?WP_Post
     return apply_filters('accept_markdown/allowed', post_type_supports($post->post_type, 'accept-markdown'), $post) ? $post : null;
 }
 
+/**
+ * do_blocks() with no shortcode handlers, no third-party the_content filters, no comment blocks and no comment
+ * queries. Nested blocks (Query Loops, Post Content, excerpts) run the_content and shortcodes themselves, so this
+ * applies to the whole render. Everything is restored afterwards, so the HTML fallback is unaffected.
+ */
+function renderBlocks(string $content): string
+{
+    global $wp_filter;
+    $theContent = $wp_filter['the_content'] ?? null;
+    $wp_filter['the_content'] = new \WP_Hook();
+    add_filter('the_content', 'do_blocks', 9);
+    add_filter('the_content', 'wpautop');
+
+    $noShortcodes = fn (): string => '';
+    $noComments = fn (mixed $result, \WP_Comment_Query $query): array|int => $query->query_vars['count'] ? 0 : [];
+    add_filter('pre_do_shortcode_tag', $noShortcodes, PHP_INT_MAX);
+    add_filter('comments_pre_query', $noComments, PHP_INT_MAX, 2);
+
+    $commentBlocks = array_filter(\WP_Block_Type_Registry::get_instance()->get_all_registered(), fn (\WP_Block_Type $type): bool => str_contains($type->name, 'comment'));
+    $callbacks = array_map(fn (\WP_Block_Type $type): mixed => $type->render_callback, $commentBlocks);
+    array_walk($commentBlocks, fn (\WP_Block_Type $type) => $type->render_callback = '__return_empty_string');
+
+    try {
+        return do_blocks($content);
+    } finally {
+        $wp_filter['the_content'] = $theContent;
+        remove_filter('pre_do_shortcode_tag', $noShortcodes, PHP_INT_MAX);
+        remove_filter('comments_pre_query', $noComments, PHP_INT_MAX);
+        array_walk($commentBlocks, fn (\WP_Block_Type $type, string $name) => $type->render_callback = $callbacks[$name]);
+    }
+}
+
 function render(WP_Post $post): string
 {
-    $html = strip_shortcodes(do_blocks(strip_shortcodes($post->post_content)));
+    // Shortcodes never run during rendering; this removes the tags left as text, with any enclosed content.
+    $html = strip_shortcodes(renderBlocks($post->post_content));
     if (! has_blocks($post->post_content)) {
         $html = wpautop($html);
     }
@@ -114,7 +147,7 @@ function render(WP_Post $post): string
 
     $title = wp_strip_all_tags(html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
 
-    return '# '.$title."\n\n".preg_replace("/\n{3,}/", "\n\n", trim($converter->convert($html)))."\n";
+    return '# '.$title."\n\n".preg_replace("/\n(?:[ \t]*\n){2,}/", "\n\n", trim($converter->convert($html)))."\n";
 }
 
 add_action('init', function (): void {
