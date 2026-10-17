@@ -283,8 +283,6 @@ tests/
   fixtures.php               Test content, run with wp eval-file
   accept-markdown-test.php   Test mu-plugin (CPTs, shortcode, filters)
 SPEC.md                      The specification
-tasks/                       Implementation plan and tickets
-notes/                       Prototype from the review session
 ```
 
 For local development, symlink the repo into a site's `wp-content/plugins/accept-markdown`.
