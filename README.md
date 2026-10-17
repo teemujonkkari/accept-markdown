@@ -54,8 +54,10 @@ The plugin registers four hooks. Three of them do almost nothing on a normal req
 flowchart LR
     A["plugins_loaded<br/>Markdown request? define DONOTCACHEPAGE"] --> B["init (priority 1)<br/>add support to post and page"]
     B --> C["send_headers<br/>Vary: Accept on every front-end response"]
-    C --> D["template_redirect<br/>serve Markdown or do nothing"]
+    C --> D["template_redirect (last)<br/>serve Markdown or do nothing"]
 ```
+
+The handler runs at the last priority, so access gates that other plugins or the theme hook on `template_redirect`, such as login walls and maintenance modes, redirect or exit first.
 
 On each front-end request, the handler decides between Markdown and doing nothing. "Do nothing" means WordPress carries on and renders the usual HTML page.
 
@@ -330,7 +332,7 @@ composer test
 
 The fixture file is idempotent. It finds content by slug, creates it when missing and updates it otherwise. It never deletes anything.
 
-The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, and turns off canonical redirects.
+The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated`, and turns off canonical redirects.
 
 ## License
 

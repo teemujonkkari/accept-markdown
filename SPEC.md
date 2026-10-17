@@ -114,7 +114,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - `init` at an early priority adding Markdown support to `post` and `page`.
   - An early hook (`plugins_loaded`) that tells page-cache plugins not to cache when the negotiator says Markdown.
   - `send_headers` adding `Vary: Accept` to every front-end response.
-  - `template_redirect` at default priority running the handler.
+  - `template_redirect` at priority `PHP_INT_MAX` running the handler, so access gates that other plugins or the theme hook there (login walls, maintenance modes) redirect or exit first. Plugins load alphabetically, so at the default priority the handler would run and exit before most of them.
 
   The temporary filters added and removed around `do_blocks` (rendering step 1) do not count as permanent hooks.
 - **Response contract for Markdown:**
@@ -136,7 +136,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 - **One seam: HTTP.** All tests are black-box HTTP requests against a WordPress site with pretty permalinks and the plugin active. They assert only status, response headers and body text. No test calls plugin functions directly or inspects internal state.
 - **Target site.** The base URL comes from the `ACCEPT_MARKDOWN_BASE_URL` environment variable and defaults to `http://accept-markdown.local` (the Local dev site). CI points it at a disposable WordPress Playground instance.
 - **A good test** sends one request with specific headers and asserts on the observable response. The Accept negotiation edge cases (stories 8 to 15, 43, 55) are covered as a table of Accept values to expected representation, each one HTTP request.
-- **Test mu-plugin.** One file in the test directory, installed into `wp-content/mu-plugins/`, holds every test hook: the test CPTs, a test shortcode, a `the_content` and a `render_block` filter that output markers, and the allow and output filters used by the tests.
+- **Test mu-plugin.** One file in the test directory, installed into `wp-content/mu-plugins/`, holds every test hook: the test CPTs, a test shortcode, a `the_content` and a `render_block` filter that output markers, and the allow and output filters used by the tests, and a `template_redirect` login wall registered after the plugin's handler.
 - **Fixtures** are created by one wp-cli script, run from the Local site shell for local dev and from the Playground blueprint in CI:
   - a normal published post
   - a published page
@@ -175,6 +175,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - The sitemap and robots.txt respond normally with `Accept: application/xml` and `Accept: text/plain`.
   - A 10 KB Accept header returns HTML.
   - The allow filter returning true for a password-protected post still returns HTML.
+  - A `template_redirect` login wall registered after the plugin's handler, at the default priority, redirects a signed-out Markdown request to the login page instead of serving Markdown.
 - **Prior art:** the roots plugin's Pest suite used the same pattern (a request helper over a Playground server, parsed status and headers, Pest expectations). We reuse the pattern, not the code.
 - **CI** runs the suite against the minimum supported PHP (8.4) and the latest PHP, plus `composer audit`.
 

@@ -33,6 +33,15 @@ it('reaches the non-viewable CPT post as HTML, so the check above is real', func
     expect(browser('/?am_test=internal')->body)->toContain('amInternalMarker');
 });
 
+it('lets a later-loaded plugin\'s login wall run first', function (): void {
+    $gated = markdown('/am-post/?am_test=gated');
+
+    expect($gated->status)->toBe(302)
+        ->and($gated->isMarkdown())->toBeFalse()
+        ->and($gated->header('location'))->toContain('wp-login.php')
+        ->and(markdown('/am-post/?am_test=gated', cookieJar: signIn())->isMarkdown())->toBeTrue();
+});
+
 it('never serves a protected post to a visitor who knows its password', function (): void {
     $jar = enterPostPassword('am-secret');
 

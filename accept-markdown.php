@@ -164,6 +164,7 @@ add_action('plugins_loaded', function (): void {
 
 add_action('send_headers', fn () => header('Vary: Accept', false));
 
+// Last, so other plugins' and the theme's access gates (login walls, maintenance modes) redirect or exit first.
 add_action('template_redirect', function (): void {
     if (! wantsMarkdown() || ! ($post = eligiblePost())) {
         return;
@@ -189,4 +190,4 @@ add_action('template_redirect', function (): void {
         echo $markdown;
     }
     exit;
-});
+}, PHP_INT_MAX);

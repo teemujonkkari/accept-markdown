@@ -62,5 +62,14 @@ add_filter('request', fn (array $vars): array => ($_GET['am_test'] ?? '') === 'i
     ? ['post_type' => 'am_internal', 'name' => 'am-internal']
     : $vars);
 
+// ?am_test=gated sends signed-out visitors to the login page, like a login-wall plugin such as Force Login.
+// Registered on plugins_loaded so it lands after Accept Markdown's handler, as a plugin loading later would.
+add_action('plugins_loaded', fn () => add_action('template_redirect', function (): void {
+    if (($_GET['am_test'] ?? '') === 'gated' && ! is_user_logged_in()) {
+        wp_safe_redirect(wp_login_url());
+        exit;
+    }
+}));
+
 // No canonical redirects, so requests like /?name=am-draft reach the plugin instead of a 301.
 add_filter('redirect_canonical', '__return_false');
