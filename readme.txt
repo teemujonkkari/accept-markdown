@@ -102,6 +102,9 @@ No. The only trigger is the `Accept` header. There are no new URLs or rewrite ru
 
 == Changelog ==
 
+= 0.2.1 =
+* Author and plugin URI in the plugin header, so the Plugins screen shows them.
+
 = 0.2.0 =
 * Updates arrive through the WordPress updater from GitHub releases (Update URI header), with a working "View details" window.
 * Security: the Markdown handler runs last on template_redirect, so login walls and maintenance modes from other plugins run first.
