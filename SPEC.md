@@ -17,7 +17,7 @@ We need our own plugin that does one thing: when a request for a public post say
 
 ## Solution
 
-A single-file WordPress plugin, PHP 8.4 minimum, with no settings, no database writes, no new URLs and no admin UI.
+A single-file WordPress plugin, PHP 8.4 minimum, with no settings, no tables, no new URLs and no admin UI.
 
 When a front-end GET or HEAD request for a single, published, publicly viewable, non-password-protected post, page or opted-in custom post type carries an `Accept` header that prefers `text/markdown` over `text/html`, the plugin responds with the post title and rendered content converted to Markdown. In every other case it does nothing and WordPress renders HTML exactly as before, except that every front-end response carries `Vary: Accept`.
 
@@ -70,7 +70,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 43. As a site owner, I want Accept headers longer than a fixed limit (4 KB) or with more than a fixed number of entries (32) treated as "not Markdown", so that a crafted header cannot cost noticeable CPU.
 44. As a site owner, I want any exception thrown during rendering or conversion to cause a silent fallback to the normal HTML response, with no error details in the body, so that failures never leak internals or break the page.
 45. As a site owner, I want a HEAD request that would produce Markdown to return the same headers with no body, so that HEAD stays consistent with GET.
-46. As a site owner, I want the plugin to create no options, transients, tables, cron jobs, rewrite rules or admin screens, so that there is nothing to configure, migrate or clean up on uninstall.
+46. As a site owner, I want the plugin to create no options, tables, cron jobs, rewrite rules or admin screens, and no transient other than the self-expiring update-check cache, so that there is nothing to configure, migrate or clean up on uninstall.
 47. As a site owner, I want activation on PHP below 8.4 or WordPress below 7.1.3 to be refused by WordPress via the plugin header, so that the plugin never runs on an unsupported runtime.
 48. As a site owner, I want the HTML-to-Markdown library bundled under a plugin-private namespace, so that another plugin shipping a different version cannot conflict with ours.
 49. As a maintainer, I want the bundled library pinned to an exact version with a committed lock file, and the prefixed copy reproducible from a single build command, so that we can audit and update it deliberately.
@@ -81,6 +81,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 54. As a site owner, I want post embed requests (the `/embed/` endpoint) left untouched, so that oEmbed consumers keep getting the embed HTML.
 55. As an AI agent sending q-values above 1 or with whitespace around `=` (for example `text/markdown; q = 0.9`), I want them parsed leniently and clamped to the 0 to 1 range, so that a sloppy but readable header still negotiates correctly and an oversized q cannot outrank everything.
 56. As a site owner, I want the Markdown always rendered as a signed-out visitor, so that dynamic blocks (latest posts, query loops) never list private posts for a signed-in user and the Markdown contains only public content.
+57. As a site owner, I want updates offered through the normal WordPress updater from this repository's GitHub releases, with an `Update URI` header so WordPress never asks WordPress.org about this slug, so that I get updates without the plugin being in the directory and no directory plugin of the same name can ever be offered in its place.
 
 ## Implementation Decisions
 
@@ -106,7 +107,9 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 
   Never done: a private rendering chain built from raw `post_content`. The plugin only removes from what the page renders and never reconstructs content, because a reconstruction bypasses every access gate other plugins add. WordPress comments are never queried or rendered.
 - **Converter.** league/html-to-markdown, prefixed into the plugin-private `AcceptMarkdown\Vendor` namespace with php-scoper (or an equivalent tool), pinned exact version, ATX headings, strip tags on, hard breaks on, table converter registered, and the story 35 list also set as the converter's remove-nodes option as a second line of defence after rendering step 2. There is one autoload path and no runtime class detection.
-- **Hooks (exactly four):**
+- **Hooks (exactly six):**
+  - `update_plugins_github.com`, which WordPress calls instead of asking WordPress.org because of the `Update URI` plugin header. It fetches the latest release from the GitHub API (cached in a site transient for 12 hours), takes only the tag name and the release notes from the response, builds the package URL from the tag under this repository's releases and checks that URL is one of the release's assets. WordPress compares the version and offers the update. It runs only during update checks (admin and cron), never on front-end requests, and the fetch is the plugin's only outbound HTTP request.
+  - `plugins_api` for this slug only, so the "View details" window on the Plugins screen shows the plugin's description and the latest release's notes (escaped) from the same cache instead of asking WordPress.org.
   - `init` at an early priority adding Markdown support to `post` and `page`.
   - An early hook (`plugins_loaded`) that tells page-cache plugins not to cache when the negotiator says Markdown.
   - `send_headers` adding `Vary: Accept` to every front-end response.

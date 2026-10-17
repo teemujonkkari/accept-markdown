@@ -9,7 +9,7 @@ $ curl -H 'Accept: text/markdown' https://example.com/hello-world/
 Welcome to WordPress. This is your first post.
 ```
 
-It is built for AI agents, LLM tooling and scripts that want a post's content without parsing a theme's HTML. It is deliberately small: one PHP file, no settings, no database writes, no new URLs.
+It is built for AI agents, LLM tooling and scripts that want a post's content without parsing a theme's HTML. It is deliberately small: one PHP file, no settings, no tables, no new URLs.
 
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -36,7 +36,7 @@ WordPress refuses to activate the plugin on older versions, based on the plugin 
 
 Copy `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` into `wp-content/plugins/accept-markdown/` and activate the plugin. There is nothing to configure.
 
-The plugin is not in the WordPress.org plugin directory, so it does not update through the WordPress updater. To update, replace the folder with the new release from GitHub.
+The plugin is not in the WordPress.org plugin directory, but it updates through the normal WordPress updater: the `Update URI` header makes WordPress ask the plugin instead of the directory, and the plugin checks the latest [GitHub release](https://github.com/teemujonkkari/accept-markdown/releases) twice a day. Only a release zip from this repository is ever offered; the package URL is built from the tag name and must match one of the release's assets. The "View details" window shows the release notes.
 
 Posts and pages are served as Markdown straight away. Custom post types are not, until they opt in (see [Post types](#post-types)).
 
@@ -50,13 +50,14 @@ The response should have `Content-Type: text/markdown` and start with `# ` and t
 
 ## How it works
 
-The plugin registers four hooks. Three of them do almost nothing on a normal request; the real work happens in `template_redirect`, after WordPress has resolved the URL to a post.
+The plugin registers six hooks. Three of them do almost nothing on a normal request, two run only in the admin for plugin updates, and the real work happens in `template_redirect`, after WordPress has resolved the URL to a post.
 
 ```mermaid
 flowchart LR
     A["plugins_loaded<br/>Markdown request? define DONOTCACHEPAGE"] --> B["init (priority 1)<br/>add support to post and page"]
     B --> C["send_headers<br/>Vary: Accept on every front-end response"]
     C --> D["template_redirect (last)<br/>serve Markdown or do nothing"]
+    U["update_plugins_github.com<br/>latest GitHub release, admin and cron only"] --> V["plugins_api<br/>the View details window"]
 ```
 
 The handler runs at the last priority, so access gates that other plugins or the theme hook on `template_redirect`, such as login walls and maintenance modes, redirect or exit first.
@@ -236,6 +237,7 @@ If the filter throws, the visitor gets the normal HTML page.
 The guiding rule: **the Markdown never exposes anything the public HTML page does not already expose.**
 
 - Only the `Accept` header and the request method are read from the request. No query parameters, cookies or other headers.
+- The only outbound request is the update check to the GitHub API, during admin and cron update checks, never on front-end requests. Only the tag name and the release notes (escaped before display) are read from the response; the package URL is built from the tag under this repository and must match a release asset.
 - Hard eligibility checks run before, and independently of, post type support and the filter.
 - Rendering happens as a signed-out visitor.
 - Content comes from the same `the_content` chain, in the main loop, that the signed-out HTML page uses, so membership and paywall gates apply to the Markdown.
@@ -243,7 +245,7 @@ The guiding rule: **the Markdown never exposes anything the public HTML page doe
 - Non-content elements are removed with their contents before conversion.
 - HTML comments and block delimiters are dropped.
 - Any exception during rendering falls back silently to the normal HTML response, with no error details in the body.
-- The plugin creates no options, transients, tables, cron jobs, rewrite rules or admin screens. There is nothing to clean up on uninstall.
+- The plugin creates no options, tables, cron jobs, rewrite rules or admin screens. The one site transient (the cached update check, `accept_markdown_release`) expires by itself, so there is nothing to clean up on uninstall.
 
 ## Caching
 

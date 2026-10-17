@@ -19,9 +19,9 @@ Accept Markdown is built for AI agents, LLM tooling and scripts that want a post
 
     Welcome to WordPress. This is your first post.
 
-It is deliberately small: one PHP file, no settings, no database writes, no new URLs and no admin screens.
+It is deliberately small: one PHP file, no settings, no tables, no new URLs and no admin screens.
 
-The plugin is distributed on GitHub, not in the WordPress.org plugin directory. It does not update through the WordPress updater; install new releases by hand.
+The plugin is distributed on GitHub, not in the WordPress.org plugin directory. Updates still arrive through the normal WordPress updater: the plugin checks the latest GitHub release twice a day and offers it on the Plugins screen.
 
 **What gets served**
 
@@ -72,13 +72,13 @@ Full documentation, the specification and the test suite are on [GitHub](https:/
 
 The response should have `Content-Type: text/markdown` and start with `# ` and the post title.
 
-Updates do not arrive through the WordPress updater. To update, replace the plugin folder with the new release from GitHub.
+Updates appear on the Plugins screen like any other plugin's, fetched from GitHub releases.
 
 == Frequently Asked Questions ==
 
-= Why does WordPress not offer updates for this plugin? =
+= Where do updates come from? =
 
-It is not in the WordPress.org plugin directory, so the built-in updater knows nothing about it. New releases are published on [GitHub](https://github.com/teemujonkkari/accept-markdown/releases) and installed by replacing the plugin folder.
+From [GitHub releases](https://github.com/teemujonkkari/accept-markdown/releases), not WordPress.org. The plugin header's `Update URI` tells WordPress to ask the plugin instead of the directory, and the plugin fetches the latest release from the GitHub API, cached for 12 hours. Only a release zip from this repository is ever offered.
 
 = Does this change my site for normal visitors? =
 
@@ -101,6 +101,13 @@ No. Markdown responses are never cacheable (`no-store`) and the plugin defines `
 No. The only trigger is the `Accept` header. There are no new URLs or rewrite rules.
 
 == Changelog ==
+
+= 0.2.0 =
+* Updates arrive through the WordPress updater from GitHub releases (Update URI header), with a working "View details" window.
+* Security: the Markdown handler runs last on template_redirect, so login walls and maintenance modes from other plugins run first.
+* Security: content is rendered through the real the_content chain in the main loop, so membership and paywall restrictions apply to the Markdown. Shortcodes and third-party content filters now run as on the page.
+* License changed to MIT.
+* Added readme.txt.
 
 = 0.1.0 =
 * Initial release.

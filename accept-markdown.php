@@ -9,6 +9,7 @@
  * License: MIT
  * License URI: https://opensource.org/licenses/MIT
  * Text Domain: accept-markdown
+ * Update URI: https://github.com/teemujonkkari/accept-markdown
  */
 
 declare(strict_types=1);
@@ -24,6 +25,7 @@ defined('ABSPATH') || exit;
 require_once __DIR__.'/vendor_prefixed/vendor/autoload.php';
 
 const NON_CONTENT = 'script|style|iframe|noscript|template|form|object|embed|svg';
+const REPO = 'teemujonkkari/accept-markdown';
 
 /**
  * q-value of the most specific Accept entry matching $type (exact > type/* > *\/*), per RFC 9110.
@@ -151,6 +153,67 @@ add_action('init', function (): void {
     add_post_type_support('post', 'accept-markdown');
     add_post_type_support('page', 'accept-markdown');
 }, 1);
+
+/**
+ * The latest GitHub release as version, package URL and notes, cached for 12 hours; empty when there is none usable.
+ * Only the tag name and the notes are taken from the API: the package URL is built from the tag under this
+ * repository and must be one of the release's assets, so nothing outside the repository can be offered as an update.
+ *
+ * @return array{version: string, package: string, notes: string}|array{}
+ */
+function latestRelease(): array
+{
+    $release = get_site_transient('accept_markdown_release');
+    if (is_array($release)) {
+        return $release;
+    }
+
+    $response = wp_remote_get('https://api.github.com/repos/'.REPO.'/releases/latest', ['timeout' => 5, 'headers' => ['Accept' => 'application/vnd.github+json']]);
+    $body = json_decode((string) wp_remote_retrieve_body($response), true);
+    $version = ltrim((string) ($body['tag_name'] ?? ''), 'v');
+    $package = 'https://github.com/'.REPO."/releases/download/v$version/accept-markdown-$version.zip";
+    $release = preg_match('/^\d+\.\d+\.\d+$/', $version) === 1 && in_array($package, array_column($body['assets'] ?? [], 'browser_download_url'), true)
+        ? ['version' => $version, 'package' => $package, 'notes' => (string) ($body['body'] ?? '')]
+        : [];
+    set_site_transient('accept_markdown_release', $release, 12 * HOUR_IN_SECONDS);
+
+    return $release;
+}
+
+// Updates from GitHub releases, through the normal WordPress updater. The Update URI header makes WordPress ask this
+// filter instead of WordPress.org; WordPress compares the version itself.
+add_filter('update_plugins_github.com', function (array|false $update, array $plugin): array|false {
+    if ($plugin['UpdateURI'] !== 'https://github.com/'.REPO || ($release = latestRelease()) === []) {
+        return $update;
+    }
+
+    return [
+        'slug' => 'accept-markdown',
+        'version' => $release['version'],
+        'url' => 'https://github.com/'.REPO.'/releases/tag/v'.$release['version'],
+        'package' => $release['package'],
+    ];
+}, 10, 2);
+
+// The "View details" window on the Plugins screen, which would otherwise ask WordPress.org about this slug.
+add_filter('plugins_api', function (mixed $result, string $action, object $args): mixed {
+    if ($action !== 'plugin_information' || ($args->slug ?? null) !== 'accept-markdown' || ($release = latestRelease()) === []) {
+        return $result;
+    }
+    $header = get_file_data(__FILE__, ['name' => 'Plugin Name', 'description' => 'Description']);
+
+    return (object) [
+        'name' => $header['name'],
+        'slug' => 'accept-markdown',
+        'version' => $release['version'],
+        'homepage' => 'https://github.com/'.REPO,
+        'download_link' => $release['package'],
+        'sections' => [
+            'description' => wpautop(esc_html($header['description'])),
+            'changelog' => '<h4>'.esc_html($release['version']).'</h4>'.wpautop(esc_html($release['notes'])),
+        ],
+    ];
+}, 10, 3);
 
 // Same URL serves two representations: keep page caches out and tell HTTP caches to key on Accept.
 add_action('plugins_loaded', function (): void {
