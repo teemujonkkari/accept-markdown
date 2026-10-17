@@ -4,7 +4,7 @@ Tags: markdown, ai, llm, content negotiation, api
 Requires at least: 7.1.3
 Tested up to: 7.1
 Requires PHP: 8.4
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
