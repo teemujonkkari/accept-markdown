@@ -257,13 +257,46 @@ The same URL serves two representations, so caches must not mix them up:
 
 The result: Markdown is never served to normal visitors from any cache. Agents re-fetch every time, which is fine at the expected traffic.
 
+### Cache compatibility
+
+The remaining question for any cache is the other direction: does an agent asking for Markdown get a cached HTML page? That depends on whether the cache keys on `Vary: Accept` and whether it answers before WordPress runs.
+
+| Cache | Markdown to visitors | HTML to agents | Notes |
+|---|---|---|---|
+| Nginx cache on Seravo | Never | No | Honours the standard `Vary` header. Tested, works without configuration. |
+| WP Super Cache and other `advanced-cache.php` plugins | Never | Possible | They answer before `plugins_loaded`, so a cached HTML page is served to Markdown requests. `DONOTCACHEPAGE` keeps Markdown out of the cache. |
+| LiteSpeed Cache (LSCache) | Never | Yes, until configured | The server answers from its cache before PHP runs and does not key on `Vary: Accept`. The plugin respects `DONOTCACHEPAGE`, so Markdown is never stored. Add the rewrite rule below. |
+| Varnish, Nginx FastCGI cache with `Vary` ignored, other server-level caches | Never | Possible | Same class as LiteSpeed. Bypass the cache when the `Accept` header mentions `text/markdown`, or configure the cache to key on `Accept`. |
+| Cloudflare and CDNs that ignore `Vary` | Never | Possible | `Cache-Control: no-store` keeps Markdown out. A cached HTML page can still be served to an agent unless the CDN is told to bypass or vary on `Accept`. |
+
+**LiteSpeed Cache.** Add this to the site's `.htaccess`, above the WordPress block:
+
+```apache
+<IfModule LiteSpeed>
+RewriteEngine On
+RewriteCond %{HTTP:Accept} text/markdown [NC]
+RewriteRule .* - [E=Cache-Control:no-cache]
+</IfModule>
+```
+
+Requests whose `Accept` header mentions Markdown bypass the cache and reach WordPress, which negotiates as usual. A bypass is enough; a separate cache variant would never be filled because Markdown responses are not stored. Requests that mention Markdown with a low preference also bypass the cache and get uncached HTML, which is harmless.
+
+To verify any cache, request the same URL twice as a browser and once as an agent, and compare the cache status header (`X-LiteSpeed-Cache`, `X-Cache`, `X-Proxy-Cache` or similar) and the content type:
+
+```bash
+curl -sI https://example.com/post/ | grep -i -E 'x-.*cache|content-type'
+curl -sI -H 'Accept: text/markdown' https://example.com/post/ | grep -i -E 'x-.*cache|content-type'
+```
+
+The browser request should turn into a cache hit on the second run. The agent request should never be a hit and should report `text/markdown`.
+
 ## Known trade-offs
 
 - **Third-party `the_content` output appears.** Share buttons, related posts and similar text from other plugins can end up in the Markdown. Everything they add already appears on the public page. The alternative, a private rendering chain, bypassed membership plugins' content gates, so this is a deliberate choice. Trim with the `accept_markdown/output` filter if needed.
 - **Dynamic blocks are kept.** Latest Posts, Query Loops and similar blocks render as on the public page. Because rendering is signed out, they only show public content.
 - **Third-party `render_block` filters run.** Their output can reach the Markdown. That output already appears on the public HTML page.
 - **Embeds render as on the page.** An embed whose markup is only an iframe (for example YouTube) is removed with the iframe and leaves nothing. Embeds with a fallback blockquote keep their text and link.
-- **Page caches that answer early can serve HTML to agents.** A cache that serves from `advanced-cache.php` responds before plugins load, so a Markdown request can get a cached HTML page. The reverse never happens, because Markdown is never stored.
+- **Caches that answer early can serve HTML to agents.** A cache that serves from `advanced-cache.php`, or a server-level cache such as LiteSpeed that answers before PHP runs, responds before plugins load, so a Markdown request can get a cached HTML page. The reverse never happens, because Markdown is never stored. See [Cache compatibility](#cache-compatibility).
 - **A Markdown request whose rendering throws** falls back to the signed-out version of the HTML page.
 
 ## What it does not do
