@@ -102,7 +102,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
      - comment queries return nothing, which covers third-party blocks that list comments under another name, such as reviews.
 
      Both are restored in a `finally` block and the loop is rewound, so the HTML fallback after an exception renders normally.
-  2. Remove the story 35 elements together with their content. An element with no closing tag removes everything after its opening tag, so malformed markup fails closed. This must run before kses, because kses deletes disallowed tags but keeps the text between them.
+  2. Remove the story 35 elements together with their content, in two steps: closed elements innermost first, one pass per nesting level, then everything from the first remaining opener to the end of the document in one pass. An element with no closing tag therefore removes everything after its opening tag, so malformed markup fails closed, and a run of unclosed openers costs one pass, not one per opener. This must run before kses, because kses deletes disallowed tags but keeps the text between them.
   3. Pass the HTML through the WordPress post kses rules.
   4. Apply the `<pre>` flattening and `<figure>`/`<figcaption>` block fixes from the prototype, and put a space between adjacent links that have nothing between them (flex-layout cards keep them apart with CSS, which the converter cannot see).
   5. Convert with comment preservation off, so HTML comments and block delimiters are dropped. Consecutive blank lines, including whitespace-only lines, are collapsed to at most one.

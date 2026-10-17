@@ -128,11 +128,14 @@ function render(WP_Post $post): string
 {
     $html = renderContent($post);
 
-    // Remove non-content elements with everything inside them, innermost first; an unclosed one removes the rest.
-    // This runs before kses because kses deletes disallowed tags but keeps the text between them.
+    // Remove non-content elements with everything inside them: closed ones innermost first (one pass per nesting
+    // level), then everything from the first unclosed opener to the end in a single pass, so malformed markup fails
+    // closed without a pass per opener. This runs before kses because kses deletes disallowed tags but keeps the text
+    // between them.
     do {
-        $html = preg_replace('#<('.NON_CONTENT.')\b[^>]*>(?:(?!<\1\b).)*?(?:</\1\s*>|$)#is', '', $html, -1, $count);
+        $html = preg_replace('#<('.NON_CONTENT.')\b[^>]*>(?:(?!<\1\b).)*?</\1\s*>#is', '', $html, -1, $count);
     } while ($count > 0);
+    $html = preg_replace('#<(?:'.NON_CONTENT.')\b.*$#is', '', $html);
     $html = wp_kses_post($html);
 
     // Flatten <pre> so syntax-highlighter markup doesn't leak into the code fence.

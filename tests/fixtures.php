@@ -86,6 +86,12 @@ $unsafeId = am_fixture(
 $comment = ['comment_post_ID' => $unsafeId, 'comment_content' => 'amCommentMarker [am_test /]', 'comment_approved' => 1, 'comment_author' => 'Commenter'];
 $existingComment = get_comments(['post_id' => $unsafeId, 'number' => 1, 'fields' => 'ids']);
 $existingComment === [] ? wp_insert_comment($comment) : wp_update_comment(['comment_ID' => $existingComment[0]] + $comment);
+// Non-content removal: nested closed elements, then several unclosed openers in a row (an Author can plant these).
+am_fixture('am-removal', 'Removal', $p('Before.')
+    ."<!-- wp:html -->\n<div><object data=\"x\"><object data=\"y\">amInnerObjectMarker</object>amOuterObjectMarker</object><p>Between.</p></div>\n<!-- /wp:html -->\n\n"
+    .$p('amAfterNestedMarker')
+    ."<!-- wp:html -->\n<script>amUnclosedOneMarker<script>amUnclosedTwoMarker<script>amUnclosedThreeMarker\n<!-- /wp:html -->\n\n"
+    .$p('amAfterUnclosedMarker'));
 am_fixture('am-convert', 'Conversion', "<!-- wp:table -->\n<figure class=\"wp-block-table\"><table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td>alpha</td><td>1</td></tr></tbody></table></figure>\n<!-- /wp:table -->\n\n"
     ."<!-- wp:code -->\n<pre class=\"wp-block-code\"><code><span class=\"hl-k\">if</span> (a &lt; b &amp;&amp; c) { <span class=\"hl-f\">run</span>(); }</code></pre>\n<!-- /wp:code -->\n\n"
     ."<!-- wp:image -->\n<figure class=\"wp-block-image\"><img src=\"https://example.com/image.png\" alt=\"An image\"/><figcaption class=\"wp-element-caption\">amCaptionMarker</figcaption></figure>\n<!-- /wp:image -->\n\n"

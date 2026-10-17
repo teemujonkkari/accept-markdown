@@ -44,6 +44,16 @@ it('removes non-content elements, unsafe links, HTML comments and WordPress comm
     }
 });
 
+it('removes closed non-content elements innermost first and everything after an unclosed one', function (): void {
+    $body = markdown('/am-removal/')->body;
+
+    expect($body)->toContain('Before.')->toContain('Between.')->toContain('amAfterNestedMarker');
+
+    foreach (['amInnerObjectMarker', 'amOuterObjectMarker', 'amUnclosedOneMarker', 'amUnclosedTwoMarker', 'amUnclosedThreeMarker', 'amAfterUnclosedMarker'] as $forbidden) {
+        expect($body)->not->toContain($forbidden);
+    }
+});
+
 it('converts tables, code and figures cleanly', function (): void {
     $body = markdown('/am-convert/')->body;
 

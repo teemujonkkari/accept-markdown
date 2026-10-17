@@ -148,7 +148,7 @@ Notes on the chain:
 - **Why the real chain.** Membership and paywall plugins (Paid Memberships Pro, MemberPress, Restrict Content Pro, Members, WooCommerce Memberships) gate published posts by filtering `the_content` or rewriting the post object in the query results. Such a post is still published, viewable and unprotected, so only that chain knows it is gated. An earlier version rendered raw `post_content` through a private chain and served those posts in full. The rule now: the plugin removes from what the page renders and never reconstructs content.
 - **Nested blocks go through the same chain.** A Query Loop with Post Content, a Post Excerpt or a Latest Posts excerpt calls `the_content` for the posts it renders, so the same gates apply to them.
 - **Shortcodes and third-party filters run**, as on the page. Share buttons or related-post text can appear; see Known trade-offs.
-- **Step 2 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. An element with no closing tag removes everything after it, so malformed markup fails closed.
+- **Step 2 runs before kses on purpose.** kses deletes disallowed tags but keeps the text between them, which would put script source and CSS into the Markdown. Closed elements go innermost first, then one pass removes everything from the first unclosed opener to the end, so malformed markup fails closed and a run of unclosed openers costs one pass, not one per opener.
 - **Code blocks** lose syntax-highlighter markup and become plain fenced code.
 - **Tables** become Markdown pipe tables.
 - **Images inside figures** are kept on their own line, followed by the caption.
