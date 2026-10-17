@@ -166,7 +166,7 @@ A Markdown response is `200` with these headers:
 |---|---|---|
 | `Content-Type` | `text/markdown; charset=<blog charset>` | Lets clients decode it |
 | `Vary` | `Accept` | Caches key on the Accept header |
-| `Cache-Control` | `no-store, private` | CDNs that ignore `Vary` can never store it |
+| `Cache-Control` | none, like the HTML page | The HTTP cache treats both representations the same; `no-store, private` when the `accept_markdown/cacheable` filter returns false |
 | `X-Content-Type-Options` | `nosniff` | Browsers never sniff it as HTML |
 | `Content-Security-Policy` | `default-src 'none'; sandbox` | Nothing in it can run, even if a browser renders it |
 | `X-Robots-Tag` | `noindex` | Search engines do not index a duplicate |
@@ -177,7 +177,7 @@ Every other front-end response gets `Vary: Accept` added and is otherwise unchan
 
 ## Configuration for developers
 
-There are no settings. Behaviour is changed with standard WordPress calls and two filters.
+There are no settings. Behaviour is changed with standard WordPress calls and three filters.
 
 ### Post types
 
@@ -232,6 +232,14 @@ add_filter('accept_markdown/output', function (string $markdown, WP_Post $post):
 
 If the filter throws, the visitor gets the normal HTML page.
 
+### `accept_markdown/cacheable`
+
+Decides whether the HTTP cache may store the Markdown response. Receives `true` and the post. Return false behind a CDN that ignores `Vary` (for example Cloudflare with a cache-everything rule), and the response is sent with `Cache-Control: no-store, private`.
+
+```php
+add_filter('accept_markdown/cacheable', '__return_false');
+```
+
 ## Security model
 
 The guiding rule: **the Markdown never exposes anything the public HTML page does not already expose.**
@@ -251,23 +259,23 @@ The guiding rule: **the Markdown never exposes anything the public HTML page doe
 
 The same URL serves two representations, so caches must not mix them up:
 
-- Every front-end response carries `Vary: Accept`, which standards-compliant caches honour.
-- Markdown responses carry `Cache-Control: no-store, private`, so CDNs that ignore `Vary` (for example Cloudflare by default) never cache a Markdown body under a page URL.
-- On Markdown requests the plugin defines `DONOTCACHEPAGE`, which WordPress page-cache plugins such as WP Super Cache respect.
+- Every front-end response carries `Vary: Accept`, which standards-compliant caches honour. They store Markdown and HTML as separate variants of the URL and serve each to the clients that asked for it, so Markdown is cached exactly like the HTML page. The plugin sends no `Cache-Control` of its own.
+- On Markdown requests the plugin defines `DONOTCACHEPAGE`, which WordPress page-cache plugins such as WP Super Cache respect. They key on the URL alone, so they must not store Markdown at all.
+- Behind a CDN that ignores `Vary`, return false from `accept_markdown/cacheable` and Markdown is sent with `Cache-Control: no-store, private` instead.
 
-The result: Markdown is never served to normal visitors from any cache. Agents re-fetch every time, which is fine at the expected traffic.
+The result on Seravo, the primary hosting target: the first Markdown request for a post hits PHP, every later one is served by Nginx until the page is purged, and browsers never see a Markdown variant.
 
 ### Cache compatibility
 
-The remaining question for any cache is the other direction: does an agent asking for Markdown get a cached HTML page? That depends on whether the cache keys on `Vary: Accept` and whether it answers before WordPress runs.
+Two questions for any cache: does it keep the two representations apart (`Vary: Accept`), and does it answer before WordPress runs?
 
-| Cache | Markdown to visitors | HTML to agents | Notes |
-|---|---|---|---|
-| Nginx cache on Seravo | Never | No | Honours the standard `Vary` header. Tested, works without configuration. |
-| WP Super Cache and other `advanced-cache.php` plugins | Never | Possible | They answer before `plugins_loaded`, so a cached HTML page is served to Markdown requests. `DONOTCACHEPAGE` keeps Markdown out of the cache. |
-| LiteSpeed Cache (LSCache) | Never | Yes, until configured | The server answers from its cache before PHP runs and does not key on `Vary: Accept`. The plugin respects `DONOTCACHEPAGE`, so Markdown is never stored. Add the rewrite rule below. |
-| Varnish, Nginx FastCGI cache with `Vary` ignored, other server-level caches | Never | Possible | Same class as LiteSpeed. Bypass the cache when the `Accept` header mentions `text/markdown`, or configure the cache to key on `Accept`. |
-| Cloudflare and CDNs that ignore `Vary` | Never | Possible | `Cache-Control: no-store` keeps Markdown out. A cached HTML page can still be served to an agent unless the CDN is told to bypass or vary on `Accept`. |
+| Cache | Markdown cached | Markdown to visitors | HTML to agents | Notes |
+|---|---|---|---|---|
+| Nginx cache on Seravo | Yes | Never | No | Honours the standard `Vary` header. Tested on a production site, works without configuration. |
+| WP Super Cache and other `advanced-cache.php` plugins | No | Never | Possible | They answer before `plugins_loaded`, so a cached HTML page is served to Markdown requests. `DONOTCACHEPAGE` keeps Markdown out of the cache. |
+| LiteSpeed Cache (LSCache) | No | Never | Yes, until configured | The server answers from its cache before PHP runs and does not key on `Vary: Accept`. The plugin respects `DONOTCACHEPAGE`, so Markdown is never stored. Add the rewrite rule below. |
+| Varnish, Nginx FastCGI cache with `Vary` ignored, other server-level caches | Depends | Possible | Possible | If the cache ignores `Vary`, return false from `accept_markdown/cacheable` and bypass the cache when the `Accept` header mentions `text/markdown`, or configure the cache to key on `Accept`. |
+| Cloudflare and CDNs that ignore `Vary` | Depends | Possible | Possible | Cloudflare does not cache HTML by default, so there is nothing to mix up. With a cache-everything rule, return false from `accept_markdown/cacheable` and tell the CDN to bypass or vary on `Accept`. |
 
 **LiteSpeed Cache.** Add this to the site's `.htaccess`, above the WordPress block:
 
@@ -279,7 +287,7 @@ RewriteRule .* - [E=Cache-Control:no-cache]
 </IfModule>
 ```
 
-Requests whose `Accept` header mentions Markdown bypass the cache and reach WordPress, which negotiates as usual. A bypass is enough; a separate cache variant would never be filled because Markdown responses are not stored. Requests that mention Markdown with a low preference also bypass the cache and get uncached HTML, which is harmless.
+Requests whose `Accept` header mentions Markdown bypass the cache and reach WordPress, which negotiates as usual. Markdown is not stored by LiteSpeed (it respects `DONOTCACHEPAGE`), so a bypass is enough. Requests that mention Markdown with a low preference also bypass the cache and get uncached HTML, which is harmless.
 
 To verify any cache, request the same URL twice as a browser and once as an agent, and compare the cache status header (`X-LiteSpeed-Cache`, `X-Cache`, `X-Proxy-Cache` or similar) and the content type:
 

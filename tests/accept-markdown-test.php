@@ -60,6 +60,8 @@ add_filter('accept_markdown/allowed', fn (bool $allowed, WP_Post $post): bool =>
     default => $allowed,
 }, 10, 2);
 
+add_filter('accept_markdown/cacheable', fn (bool $cacheable, WP_Post $post): bool => $cacheable && $post->post_name !== 'am-page', 10, 2);
+
 add_filter('accept_markdown/output', function (string $markdown, WP_Post $post): string {
     if ($post->post_name === 'am-throws') {
         throw new RuntimeException('amExceptionMarker');

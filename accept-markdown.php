@@ -218,7 +218,8 @@ add_filter('plugins_api', function (mixed $result, string $action, object $args)
     ];
 }, 10, 3);
 
-// Same URL serves two representations: keep page caches out and tell HTTP caches to key on Accept.
+// Same URL serves two representations. HTTP caches key on Accept; WordPress page-cache plugins cannot, so they must
+// not store Markdown under the page URL.
 add_action('plugins_loaded', function (): void {
     if (wantsMarkdown() && ! defined('DONOTCACHEPAGE')) {
         define('DONOTCACHEPAGE', true);
@@ -244,7 +245,10 @@ add_action('template_redirect', function (): void {
 
     status_header(200);
     header('Content-Type: text/markdown; charset='.get_option('blog_charset'));
-    header('Cache-Control: no-store, private');
+    // Cached like the HTML page, keyed by Vary: Accept. Opt out behind a cache that ignores Vary.
+    if (! apply_filters('accept_markdown/cacheable', true, $post)) {
+        header('Cache-Control: no-store, private');
+    }
     header('X-Content-Type-Options: nosniff');
     header("Content-Security-Policy: default-src 'none'; sandbox");
     header('X-Robots-Tag: noindex');

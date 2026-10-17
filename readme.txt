@@ -43,7 +43,7 @@ The guiding rule: the Markdown never exposes anything the public HTML page does 
 
 * Rendering happens as a signed-out visitor, so dynamic blocks never list private posts.
 * The handler runs last on `template_redirect`, so login walls and maintenance modes from other plugins run first.
-* Markdown responses carry `Cache-Control: no-store, private`, `X-Content-Type-Options: nosniff`, a restrictive `Content-Security-Policy` and `X-Robots-Tag: noindex`. Every front-end response carries `Vary: Accept`.
+* Markdown responses carry `X-Content-Type-Options: nosniff`, a restrictive `Content-Security-Policy` and `X-Robots-Tag: noindex`. Every front-end response carries `Vary: Accept`, so the HTTP cache keeps the two representations apart and caches Markdown like it caches HTML.
 
 **For developers**
 
@@ -58,7 +58,7 @@ Opt any type out, including posts and pages:
 
     add_action('init', fn () => remove_post_type_support('page', 'accept-markdown'));
 
-Two filters: `accept_markdown/allowed` decides per post (it cannot bypass the hard checks) and `accept_markdown/output` changes the final Markdown string.
+Three filters: `accept_markdown/allowed` decides per post (it cannot bypass the hard checks), `accept_markdown/output` changes the final Markdown string, and `accept_markdown/cacheable` returning false marks the response `no-store` for sites behind a cache that ignores `Vary`.
 
 Full documentation, the specification and the test suite are on [GitHub](https://github.com/teemujonkkari/accept-markdown).
 
@@ -92,15 +92,19 @@ No. Only published posts on publicly viewable post types without a password are 
 
 Because the plugin renders through the real `the_content` chain, the same one that lets membership plugins restrict content. Everything it adds already appears on the public page. Trim it with the `accept_markdown/output` filter.
 
-= Will my page cache serve Markdown to browsers? =
+= Will my cache serve Markdown to browsers? =
 
-No. Markdown responses are never cacheable (`no-store`) and the plugin defines `DONOTCACHEPAGE`. A cache that answers before plugins load can serve a cached HTML page to a Markdown client, but never the reverse.
+Not with a standards-compliant HTTP cache: every response carries `Vary: Accept`, so the cache stores Markdown and HTML separately and serves each to the clients that asked for it. Seravo's Nginx cache does this without configuration. WordPress page-cache plugins key on the URL alone, so the plugin defines `DONOTCACHEPAGE` to keep Markdown out of them. Behind a CDN that ignores `Vary`, return false from the `accept_markdown/cacheable` filter and Markdown is sent with `no-store`.
 
 = Is there a `.md` URL or a query parameter? =
 
 No. The only trigger is the `Accept` header. There are no new URLs or rewrite rules.
 
 == Changelog ==
+
+= 0.3.0 =
+* Markdown responses are cached by the HTTP cache in front of the site like the HTML page, keyed by Vary: Accept. Verified on Seravo.
+* New filter accept_markdown/cacheable: return false behind a cache that ignores Vary to send no-store instead.
 
 = 0.2.1 =
 * Author and plugin URI in the plugin header, so the Plugins screen shows them.
