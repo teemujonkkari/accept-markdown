@@ -13,7 +13,7 @@ compose=(docker compose -f tests/compose.yml)
 url="http://localhost:${ACCEPT_MARKDOWN_TEST_PORT:-8080}"
 
 wp() {
-    "${compose[@]}" run --rm -T cli "$@"
+    "${compose[@]}" run --rm -T cli wp "$@"
 }
 
 case "${1:-}" in
