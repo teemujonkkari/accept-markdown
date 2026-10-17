@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Usage: bin/release 0.2.0
+#
+# Checks the tree, bumps the version in the plugin header and readme.txt, commits and tags. Pushing the tag triggers
+# .github/workflows/release.yml, which builds the zip and publishes the GitHub release. Nothing is pushed here.
+set -euo pipefail
+
+version="${1:?usage: bin/release <version>}"
+cd "$(dirname "$0")/.."
+
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be MAJOR.MINOR.PATCH" >&2; exit 1; }
+[[ $(git branch --show-current) == main ]] || { echo "release from main" >&2; exit 1; }
+[[ -z $(git status --porcelain) ]] || { echo "working tree is not clean" >&2; exit 1; }
+git rev-parse -q --verify "refs/tags/v$version" >/dev/null && { echo "v$version already exists" >&2; exit 1; }
+grep -q "^= $version =" readme.txt || { echo "add a '= $version =' changelog entry to readme.txt first" >&2; exit 1; }
+
+# The shipped converter must match the pinned dependency; the build is reproducible, so a diff means it is stale.
+composer build --quiet
+git diff --quiet vendor_prefixed || { echo "vendor_prefixed/ is stale: commit the output of composer build first" >&2; exit 1; }
+
+perl -pi -e "s/^ \* Version: .*/ * Version: $version/" accept-markdown.php
+perl -pi -e "s/^Stable tag: .*/Stable tag: $version/" readme.txt
+git add accept-markdown.php readme.txt
+git commit -q -m "chore: release $version"
+git tag -a "v$version" -m "$version"
+
+echo "Tagged v$version. Publish with:"
+echo "  git push origin main v$version"

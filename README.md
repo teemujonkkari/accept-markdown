@@ -291,6 +291,8 @@ tests/
   *Test.php                  Black-box HTTP tests
   fixtures.php               Test content, run with wp eval-file
   accept-markdown-test.php   Test mu-plugin (CPTs, shortcode, filters)
+bin/release                  Bumps the version, commits and tags a release
+.github/workflows/release.yml  Builds the zip and publishes the GitHub release on a v* tag
 SPEC.md                      The specification
 ```
 
@@ -331,6 +333,16 @@ composer test
 `ACCEPT_MARKDOWN_TEST_PASSWORD` sets the password of the `am-test-admin` user that the signed-in tests use; any value works as long as both commands see the same one. `ACCEPT_MARKDOWN_BASE_URL` points the tests at a different site (default `http://accept-markdown.local`).
 
 The fixture file is idempotent. It finds content by slug, creates it when missing and updates it otherwise. It never deletes anything.
+
+### Release
+
+Versions follow semver from the commit types: `feat` bumps minor, `fix`, `docs` and `perf` bump patch, a breaking change bumps major.
+
+1. Add a `= X.Y.Z =` entry to the changelog in `readme.txt`. It becomes the GitHub release notes.
+2. Run `bin/release X.Y.Z`. It checks that the tree is clean, on `main` and that `vendor_prefixed/` matches `composer build`, then sets the version in the plugin header and `readme.txt`, commits and tags `vX.Y.Z`.
+3. Push: `git push origin main vX.Y.Z`.
+
+The tag triggers `.github/workflows/release.yml`, which verifies the version, zips `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` under an `accept-markdown/` folder and publishes a GitHub release with the zip attached. Install it by uploading the zip in WordPress or unpacking it into `wp-content/plugins/`.
 
 The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated` and two membership-style content gates, and turns off canonical redirects.
 

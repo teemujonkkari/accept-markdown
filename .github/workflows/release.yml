@@ -1,0 +1,42 @@
+name: Release
+
+# Pushing a v* tag (see bin/release) builds the plugin zip with only the shipped files and publishes a GitHub release
+# whose notes are that version's changelog entry from readme.txt.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches the plugin version and has a changelog entry
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          header=$(sed -n 's/^ \* Version: *//p' accept-markdown.php)
+          stable=$(sed -n 's/^Stable tag: *//p' readme.txt)
+          test "$header" = "$version" || { echo "Plugin header says $header, tag says $version"; exit 1; }
+          test "$stable" = "$version" || { echo "readme.txt Stable tag says $stable, tag says $version"; exit 1; }
+          grep -q "^= $version =" readme.txt || { echo "readme.txt has no '= $version =' changelog entry"; exit 1; }
+          php -l accept-markdown.php
+
+      - name: Build the plugin zip
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p build/accept-markdown
+          cp -R accept-markdown.php readme.txt vendor_prefixed build/accept-markdown/
+          (cd build && zip -rq "../accept-markdown-$version.zip" accept-markdown)
+          unzip -l "accept-markdown-$version.zip"
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 == "= " v " =" {p=1; next} /^(= |== )/ {p=0} p' readme.txt > notes.md
+          gh release create "$GITHUB_REF_NAME" "accept-markdown-$version.zip" --title "$version" --notes-file notes.md
