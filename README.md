@@ -34,7 +34,9 @@ WordPress refuses to activate the plugin on older versions, based on the plugin 
 
 ## Installation
 
-Copy `accept-markdown.php` and `vendor_prefixed/` into `wp-content/plugins/accept-markdown/` and activate the plugin. There is nothing to configure.
+Copy `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` into `wp-content/plugins/accept-markdown/` and activate the plugin. There is nothing to configure.
+
+The plugin is not in the WordPress.org plugin directory, so it does not update through the WordPress updater. To update, replace the folder with the new release from GitHub.
 
 Posts and pages are served as Markdown straight away. Custom post types are not, until they opt in (see [Post types](#post-types)).
 
@@ -279,6 +281,7 @@ The result: Markdown is never served to normal visitors from any cache. Agents r
 
 ```text
 accept-markdown.php          The whole plugin
+readme.txt                   WordPress.org plugin readme
 vendor_prefixed/             Prefixed converter (built, shipped)
 composer.json, composer.lock Pinned dependencies and scripts
 scoper.inc.php               php-scoper config for the prefixed build
@@ -293,7 +296,7 @@ SPEC.md                      The specification
 
 For local development, symlink the repo into a site's `wp-content/plugins/accept-markdown`.
 
-Only `accept-markdown.php` and `vendor_prefixed/` belong in a release. `vendor/` holds dev tools.
+Only `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` belong in a release. `vendor/` holds dev tools.
 
 ### Build
 
