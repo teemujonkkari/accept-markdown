@@ -30,6 +30,21 @@ it('serves the normal HTML page with Vary: Accept to browsers', function (): voi
         ->and($response->body)->toContain('<html');
 });
 
+it('advertises the Markdown alternate with a Link header and a head tag on eligible posts only', function (): void {
+    $link = '; rel="alternate"; type="text/markdown"';
+    $tag = '<link rel="alternate" type="text/markdown" href="'.baseUrl().'/am-post/" />';
+
+    expect(browser('/am-post/')->header('link'))->toContain('/am-post/>'.$link)
+        ->and(browser('/am-post/')->body)->toContain($tag)
+        ->and(markdown('/am-post/')->header('link'))->toContain('/am-post/>'.$link);
+
+    foreach (['/am-blocked/', '/am-protected/', '/'] as $path) {
+        $response = browser($path);
+        expect((string) $response->header('link'))->not->toContain('text/markdown')
+            ->and($response->body)->not->toContain('type="text/markdown"');
+    }
+});
+
 it('adds Vary: Accept to every front-end response', function (string $path): void {
     expect(browser($path)->header('vary'))->toContain('Accept');
 })->with(['/', '/am-page/', '/does-not-exist/', '/feed/', '/wp-sitemap.xml']);

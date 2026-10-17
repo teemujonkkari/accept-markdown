@@ -102,6 +102,11 @@ No. The only trigger is the `Accept` header. There are no new URLs or rewrite ru
 
 == Changelog ==
 
+= 0.4.0 =
+* Eligible posts advertise the Markdown representation with a Link header and a <link rel="alternate"> tag in the head, so agents can discover it from a HEAD request or the page.
+* Security: the main query is run again signed out before rendering, so membership gates that decide at query time see the same signed-out visitor as the content filters.
+* The HTTP test suite runs in CI against a disposable WordPress in Docker on PHP 8.4 and 8.5.
+
 = 0.3.1 =
 * Adjacent links with nothing between them (phone, email, "read more" in layout cards) are separated by a space.
 

@@ -50,13 +50,14 @@ The response should have `Content-Type: text/markdown` and start with `# ` and t
 
 ## How it works
 
-The plugin registers six hooks. Three of them do almost nothing on a normal request, two run only in the admin for plugin updates, and the real work happens in `template_redirect`, after WordPress has resolved the URL to a post.
+The plugin registers seven hooks. Three of them do almost nothing on a normal request, two run only in the admin for plugin updates, one prints a discovery tag in the head, and the real work happens in `template_redirect`, after WordPress has resolved the URL to a post.
 
 ```mermaid
 flowchart LR
     A["plugins_loaded<br/>Markdown request? define DONOTCACHEPAGE"] --> B["init (priority 1)<br/>add support to post and page"]
     B --> C["send_headers<br/>Vary: Accept on every front-end response"]
-    C --> D["template_redirect (last)<br/>serve Markdown or do nothing"]
+    C --> D["template_redirect (last)<br/>Link header, then serve Markdown or do nothing"]
+    D --> W["wp_head<br/>alternate tag for an eligible post"]
     U["update_plugins_github.com<br/>latest GitHub release, admin and cron only"] --> V["plugins_api<br/>the View details window"]
 ```
 
@@ -173,6 +174,20 @@ A Markdown response is `200` with these headers:
 | `X-Robots-Tag` | `noindex` | Search engines do not index a duplicate |
 
 `HEAD` returns the same status and headers with no body.
+
+Every response for an eligible post, HTML or Markdown, also carries a discovery header, so an agent can find the Markdown representation from a HEAD request without parsing the page:
+
+```http
+Link: <https://example.com/hello-world/>; rel="alternate"; type="text/markdown"
+```
+
+The HTML head carries the same alternate, next to the JSON and RSS ones WordPress already prints there:
+
+```html
+<link rel="alternate" type="text/markdown" href="https://example.com/hello-world/" />
+```
+
+Both are only sent when a Markdown request for that URL would actually get Markdown (published, viewable type, no password, post type support and the allow filter all pass), so the header never promises something a request would not get. Note that this means the `accept_markdown/allowed` filter runs on every singular front-end request, not only on Markdown ones.
 
 Every other front-end response gets `Vary: Accept` added and is otherwise unchanged.
 
@@ -314,7 +329,7 @@ The browser request should turn into a cache hit on the second run. The agent re
 - No Markdown feeds, archives, category, tag, author, search or front-page listing output.
 - No comments in any form.
 - No 406 responses.
-- No advertising of the Markdown version (no `Link` header or `<link rel="alternate">`).
+- No site-level discovery file, no `robots.txt` entry and no RSS-style autodiscovery. The `Link` header and the head tag described under Response headers are the only advertising.
 - No front matter or metadata (author, dates, taxonomies). Use `accept_markdown/output` if you need it.
 - No conversion cache, settings page, options or WP-CLI commands.
 - No rate limiting; that belongs to the web server or CDN.

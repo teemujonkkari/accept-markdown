@@ -231,9 +231,21 @@ add_action('plugins_loaded', function (): void {
 
 add_action('send_headers', fn () => header('Vary: Accept', false));
 
+// The same alternate in the HTML head, next to the JSON and RSS ones WordPress already prints there.
+add_action('wp_head', function (): void {
+    if ($post = eligiblePost()) {
+        printf('<link rel="alternate" type="text/markdown" href="%s" />'."\n", esc_url(get_permalink($post)));
+    }
+});
+
 // Last, so other plugins' and the theme's access gates (login walls, maintenance modes) redirect or exit first.
 add_action('template_redirect', function (): void {
-    if (! wantsMarkdown() || ! ($post = eligiblePost())) {
+    $post = eligiblePost();
+    if ($post) {
+        // Tell clients that look for alternates (HEAD included) that this URL also serves Markdown.
+        header(sprintf('Link: <%s>; rel="alternate"; type="text/markdown"', get_permalink($post)), false);
+    }
+    if (! $post || ! wantsMarkdown()) {
         return;
     }
 

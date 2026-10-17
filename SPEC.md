@@ -81,6 +81,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 54. As a site owner, I want post embed requests (the `/embed/` endpoint) left untouched, so that oEmbed consumers keep getting the embed HTML.
 55. As an AI agent sending q-values above 1 or with whitespace around `=` (for example `text/markdown; q = 0.9`), I want them parsed leniently and clamped to the 0 to 1 range, so that a sloppy but readable header still negotiates correctly and an oversized q cannot outrank everything.
 56. As a site owner, I want the Markdown always rendered as a signed-out visitor, so that dynamic blocks (latest posts, query loops) never list private posts for a signed-in user and the Markdown contains only public content.
+58. As an AI agent, I want every eligible post's response, HTML or Markdown, to carry `Link: <permalink>; rel="alternate"; type="text/markdown"`, and its HTML head to carry the matching `<link rel="alternate" type="text/markdown">` next to the JSON and RSS alternates WordPress already prints, so that I can discover the Markdown representation from a HEAD request or from the page, whichever I parse. Non-eligible posts and non-singular pages carry neither, so they never promise Markdown that a request would not get.
 57. As a site owner, I want updates offered through the normal WordPress updater from this repository's GitHub releases, with an `Update URI` header so WordPress never asks WordPress.org about this slug, so that I get updates without the plugin being in the directory and no directory plugin of the same name can ever be offered in its place.
 
 ## Implementation Decisions
@@ -108,7 +109,8 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 
   Never done: a private rendering chain built from raw `post_content`. The plugin only removes from what the page renders and never reconstructs content, because a reconstruction bypasses every access gate other plugins add. WordPress comments are never queried or rendered.
 - **Converter.** league/html-to-markdown, prefixed into the plugin-private `AcceptMarkdown\Vendor` namespace with php-scoper (or an equivalent tool), pinned exact version, ATX headings, strip tags on, hard breaks on, table converter registered, and the story 35 list also set as the converter's remove-nodes option as a second line of defence after rendering step 2. There is one autoload path and no runtime class detection.
-- **Hooks (exactly six):**
+- **Hooks (exactly seven):**
+  - `wp_head` printing the story 58 alternate tag for an eligible post.
   - `update_plugins_github.com`, which WordPress calls instead of asking WordPress.org because of the `Update URI` plugin header. It fetches the latest release from the GitHub API (cached in a site transient for 12 hours), takes only the tag name and the release notes from the response, builds the package URL from the tag under this repository's releases and checks that URL is one of the release's assets. WordPress compares the version and offers the update. It runs only during update checks (admin and cron), never on front-end requests, and the fetch is the plugin's only outbound HTTP request.
   - `plugins_api` for this slug only, so the "View details" window on the Plugins screen shows the plugin's description and the latest release's notes (escaped) from the same cache instead of asking WordPress.org.
   - `init` at an early priority adding Markdown support to `post` and `page`.
@@ -174,6 +176,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
   - The `javascript:` link is absent from the Markdown.
   - Every Markdown response carries the full header set from the response contract.
   - Every HTML response carries `Vary: Accept`.
+  - An eligible post's HTML and Markdown responses carry the `Link` alternate header and its HTML head the alternate tag; a blocked post, a protected post and the front page carry neither.
   - The sitemap and robots.txt respond normally with `Accept: application/xml` and `Accept: text/plain`.
   - A 10 KB Accept header returns HTML.
   - The allow filter returning true for a password-protected post still returns HTML.
@@ -187,7 +190,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
 - Markdown feeds, comment feeds, archive, category, tag, author, search and front-page listing output.
 - Comments in any form.
 - 406 Not Acceptable responses or any other change to non-Markdown responses beyond `Vary: Accept`.
-- Advertising the Markdown representation (Link header, `<link rel="alternate">`, RSS autodiscovery).
+- Advertising the Markdown representation anywhere other than story 58: no site-level discovery file, no entry in `robots.txt`, no RSS-style autodiscovery of a Markdown feed.
 - Diagnostic headers such as `X-Markdown-Source`.
 - A conversion or response cache.
 - Settings pages, options, WP-CLI commands.
