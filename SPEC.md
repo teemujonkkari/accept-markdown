@@ -103,7 +103,7 @@ Markdown responses are marked uncacheable, sniff-proof and sandboxed, so a misbe
      Both are restored in a `finally` block and the loop is rewound, so the HTML fallback after an exception renders normally.
   2. Remove the story 35 elements together with their content. An element with no closing tag removes everything after its opening tag, so malformed markup fails closed. This must run before kses, because kses deletes disallowed tags but keeps the text between them.
   3. Pass the HTML through the WordPress post kses rules.
-  4. Apply the `<pre>` flattening and `<figure>`/`<figcaption>` block fixes from the prototype.
+  4. Apply the `<pre>` flattening and `<figure>`/`<figcaption>` block fixes from the prototype, and put a space between adjacent links that have nothing between them (flex-layout cards keep them apart with CSS, which the converter cannot see).
   5. Convert with comment preservation off, so HTML comments and block delimiters are dropped. Consecutive blank lines, including whitespace-only lines, are collapsed to at most one.
 
   Never done: a private rendering chain built from raw `post_content`. The plugin only removes from what the page renders and never reconstructs content, because a reconstruction bypasses every access gate other plugins add. WordPress comments are never queried or rendered.

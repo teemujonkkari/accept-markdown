@@ -51,7 +51,8 @@ it('converts tables, code and figures cleanly', function (): void {
         ->toContain("```\nif (a < b && c) { run(); }\n```")
         ->not->toContain('<span')->not->toContain('hl-k')
         ->toMatch('/!\[An image\]\(https:\/\/example\.com\/image\.png\)\s*\n\s*\n?amCaptionMarker/')
-        ->toContain("amCaptionMarker\n\nParagraph after the figure.");
+        ->toContain("amCaptionMarker\n\nParagraph after the figure.")
+        ->toContain('[0401234567](tel:0401234567) <am@example.invalid> [amMoreLink](https://example.com/more)');
 });
 
 it('never emits more than one blank line in a row', function (string $path): void {

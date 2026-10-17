@@ -89,7 +89,9 @@ $existingComment === [] ? wp_insert_comment($comment) : wp_update_comment(['comm
 am_fixture('am-convert', 'Conversion', "<!-- wp:table -->\n<figure class=\"wp-block-table\"><table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td>alpha</td><td>1</td></tr></tbody></table></figure>\n<!-- /wp:table -->\n\n"
     ."<!-- wp:code -->\n<pre class=\"wp-block-code\"><code><span class=\"hl-k\">if</span> (a &lt; b &amp;&amp; c) { <span class=\"hl-f\">run</span>(); }</code></pre>\n<!-- /wp:code -->\n\n"
     ."<!-- wp:image -->\n<figure class=\"wp-block-image\"><img src=\"https://example.com/image.png\" alt=\"An image\"/><figcaption class=\"wp-element-caption\">amCaptionMarker</figcaption></figure>\n<!-- /wp:image -->\n\n"
-    .$p('Paragraph after the figure.'));
+    .$p('Paragraph after the figure.')
+    // Sibling links with nothing between them, as flex-layout cards produce.
+    ."<!-- wp:html -->\n<div><a href=\"tel:0401234567\">0401234567</a><a href=\"mailto:am@example.invalid\">am@example.invalid</a><a href=\"https://example.com/more\">amMoreLink</a></div>\n<!-- /wp:html -->\n");
 
 // Nested rendering: a Query Loop whose Post Content and Post Excerpt blocks render another post.
 $nestedTag = term_exists('am-nested', 'post_tag') ?: wp_insert_term('am-nested', 'post_tag');

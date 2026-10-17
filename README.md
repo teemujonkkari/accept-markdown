@@ -151,6 +151,7 @@ Notes on the chain:
 - **Code blocks** lose syntax-highlighter markup and become plain fenced code.
 - **Tables** become Markdown pipe tables.
 - **Images inside figures** are kept on their own line, followed by the caption.
+- **Adjacent links** with nothing between them (phone, email and "read more" in a flex-layout card) get a space, since the page keeps them apart with CSS only.
 - **The title** is entity-decoded, stripped of tags and collapsed to a single line, so it cannot inject extra Markdown structure.
 - **Comments** (WordPress comments) are never queried or rendered: no comment text, authors, counts, forms or Latest Comments, even when the post contains comment blocks.
 

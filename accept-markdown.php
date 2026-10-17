@@ -136,6 +136,9 @@ function render(WP_Post $post): string
         .htmlspecialchars(html_entity_decode(strip_tags($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8')
         .'</code></pre>', $html);
 
+    // Adjacent links with nothing between them are kept apart by CSS on the page; give them a space here.
+    $html = preg_replace('#</a>(?=<a\b)#i', '</a> ', $html);
+
     // The converter has no <figure> handling, so an image would run into the next block.
     $html = preg_replace(['#<(/?)figure\b#i', '#<figcaption\b#i', '#</figcaption>#i'], ['<$1div', '<br><br><p', '</p>'], $html);
 

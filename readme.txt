@@ -102,6 +102,9 @@ No. The only trigger is the `Accept` header. There are no new URLs or rewrite ru
 
 == Changelog ==
 
+= 0.3.1 =
+* Adjacent links with nothing between them (phone, email, "read more" in layout cards) are separated by a space.
+
 = 0.3.0 =
 * Markdown responses are cached by the HTTP cache in front of the site like the HTML page, keyed by Vary: Accept. Verified on Seravo.
 * New filter accept_markdown/cacheable: return false behind a cache that ignores Vary to send no-store instead.
