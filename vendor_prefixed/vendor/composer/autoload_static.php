@@ -7,14 +7,14 @@ namespace Composer\Autoload;
 class ComposerStaticInitAcceptMarkdown
 {
     public static $prefixLengthsPsr4 = array (
-        'A' => 
+        'A' =>
         array (
             'AcceptMarkdown\\Vendor\\League\\HTMLToMarkdown\\' => 44,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'AcceptMarkdown\\Vendor\\League\\HTMLToMarkdown\\' => 
+        'AcceptMarkdown\\Vendor\\League\\HTMLToMarkdown\\' =>
         array (
             0 => __DIR__ . '/../..' . '/src',
         ),
