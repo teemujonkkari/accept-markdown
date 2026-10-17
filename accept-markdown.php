@@ -237,8 +237,15 @@ add_action('template_redirect', function (): void {
         return;
     }
 
-    // Render as a signed-out visitor, so dynamic blocks never list private posts.
+    // Render as a signed-out visitor, so dynamic blocks never list private posts. The main query already ran as the
+    // visitor, so run it again signed out: gates that decide at query time then see the same visitor as the rest of
+    // the render. If the post is gone for a signed-out visitor, serve the HTML page.
+    global $wp_query;
     wp_set_current_user(0);
+    $wp_query->get_posts();
+    if (($wp_query->posts[0] ?? null)?->ID !== $post->ID) {
+        return;
+    }
 
     try {
         $markdown = (string) apply_filters('accept_markdown/output', render($post), $post);

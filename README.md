@@ -248,7 +248,7 @@ The guiding rule: **the Markdown never exposes anything the public HTML page doe
 - Only the `Accept` header and the request method are read from the request. No query parameters, cookies or other headers.
 - The only outbound request is the update check to the GitHub API, during admin and cron update checks, never on front-end requests. Only the tag name and the release notes (escaped before display) are read from the response; the package URL is built from the tag under this repository and must match a release asset.
 - Hard eligibility checks run before, and independently of, post type support and the filter.
-- Rendering happens as a signed-out visitor.
+- Rendering happens as a signed-out visitor, and the main query is run again signed out first, so gates that decide at query time see the same visitor as the content filters.
 - Content comes from the same `the_content` chain, in the main loop, that the signed-out HTML page uses, so membership and paywall gates apply to the Markdown.
 - Rendered HTML passes through the same post kses rules WordPress uses for untrusted authors, even when the content was written by a user with `unfiltered_html`.
 - Non-content elements are removed with their contents before conversion.
