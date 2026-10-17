@@ -5,8 +5,8 @@ Requires at least: 7.1.3
 Tested up to: 7.1
 Requires PHP: 8.4
 Stable tag: 0.1.0
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+License: MIT
+License URI: https://opensource.org/licenses/MIT
 
 Serves a public post as Markdown when the request's Accept header prefers text/markdown. Everything else gets the normal HTML page.
 

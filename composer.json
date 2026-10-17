@@ -2,7 +2,7 @@
     "name": "accept-markdown/accept-markdown",
     "description": "Serve a post as Markdown when the Accept header prefers text/markdown.",
     "type": "wordpress-plugin",
-    "license": "GPL-2.0-or-later",
+    "license": "MIT",
     "require": {
         "php": ">=8.4",
         "league/html-to-markdown": "5.1.4"

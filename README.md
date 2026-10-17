@@ -299,7 +299,7 @@ CLAUDE.md, docs/agents/      Instructions for coding agents (issue tracker, tria
 
 For local development, symlink the repo into a site's `wp-content/plugins/accept-markdown`.
 
-Only `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` belong in a release. `vendor/` holds dev tools.
+Only `accept-markdown.php`, `readme.txt`, `LICENSE` and `vendor_prefixed/` belong in a release. `vendor/` holds dev tools.
 
 ### Build
 
@@ -343,10 +343,10 @@ Versions follow semver from the commit types: `feat` bumps minor, `fix`, `docs` 
 2. Run `bin/release X.Y.Z`. It checks that the tree is clean, on `main` and that `vendor_prefixed/` matches `composer build`, then sets the version in the plugin header and `readme.txt`, commits and tags `vX.Y.Z`.
 3. Push: `git push origin main vX.Y.Z`.
 
-The tag triggers `.github/workflows/release.yml`, which verifies the version, zips `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` under an `accept-markdown/` folder and publishes a GitHub release with the zip attached. Install it by uploading the zip in WordPress or unpacking it into `wp-content/plugins/`.
+The tag triggers `.github/workflows/release.yml`, which verifies the version, zips `accept-markdown.php`, `readme.txt`, `LICENSE` and `vendor_prefixed/` under an `accept-markdown/` folder and publishes a GitHub release with the zip attached. Install it by uploading the zip in WordPress or unpacking it into `wp-content/plugins/`.
 
 The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated` and two membership-style content gates, and turns off canonical redirects.
 
 ## License
 
-GPL-2.0-or-later.
+MIT. See `LICENSE`. The bundled converter, league/html-to-markdown, is MIT as well (`vendor_prefixed/LICENSE`).

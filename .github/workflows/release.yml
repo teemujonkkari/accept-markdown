@@ -29,7 +29,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           mkdir -p build/accept-markdown
-          cp -R accept-markdown.php readme.txt vendor_prefixed build/accept-markdown/
+          cp -R accept-markdown.php readme.txt LICENSE vendor_prefixed build/accept-markdown/
           (cd build && zip -rq "../accept-markdown-$version.zip" accept-markdown)
           unzip -l "accept-markdown-$version.zip"
 
