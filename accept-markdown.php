@@ -4,7 +4,7 @@
  * Plugin Name: Accept Markdown
  * Plugin URI: https://github.com/teemujonkkari/accept-markdown
  * Description: Serves a public post as Markdown when the request's Accept header prefers text/markdown.
- * Version: 0.3.0
+ * Version: 0.3.1
  * Author: Teemu Jönkkäri
  * Author URI: https://github.com/teemujonkkari
  * Requires at least: 7.1.3
