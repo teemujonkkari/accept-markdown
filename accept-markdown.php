@@ -76,7 +76,8 @@ function eligiblePost(): ?WP_Post
 {
     if (! in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)
         || is_admin() || wp_doing_ajax() || wp_doing_cron() || wp_is_serving_rest_request() || (defined('XMLRPC_REQUEST') && XMLRPC_REQUEST)
-        || is_feed() || is_preview() || is_embed() || ! is_singular()) {
+        || is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular()
+        || http_response_code() !== 200 || headers_sent()) {
         return null;
     }
 
@@ -267,16 +268,22 @@ add_action('template_redirect', function (): void {
         return;
     }
 
+    // Decide everything before sending a header, and discard anything printed meanwhile, so a careless filter can
+    // neither break the headers nor leak into the body. Any exception means the normal HTML page instead.
+    ob_start();
     try {
         $markdown = (string) apply_filters('accept_markdown/output', render($post), $post);
+        // Cached like the HTML page, keyed by Vary: Accept. Opt out behind a cache that ignores Vary.
+        $cacheable = (bool) apply_filters('accept_markdown/cacheable', true, $post);
     } catch (\Throwable) {
         return;
+    } finally {
+        ob_end_clean();
     }
 
     status_header(200);
     header('Content-Type: text/markdown; charset='.get_option('blog_charset'));
-    // Cached like the HTML page, keyed by Vary: Accept. Opt out behind a cache that ignores Vary.
-    if (! apply_filters('accept_markdown/cacheable', true, $post)) {
+    if (! $cacheable) {
         header('Cache-Control: no-store, private');
     }
     header('X-Content-Type-Options: nosniff');

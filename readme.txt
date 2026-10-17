@@ -27,7 +27,7 @@ The plugin is distributed on GitHub, not in the WordPress.org plugin directory. 
 
 A post is served as Markdown only when all of these hold:
 
-* The request is a front-end GET or HEAD for a single post, page or opted-in custom post type. Admin, REST, AJAX, cron, XML-RPC, feeds, previews and embeds are left alone.
+* The request is a front-end GET or HEAD for a single post, page or opted-in custom post type. Admin, REST, AJAX, cron, XML-RPC, feeds, previews, embeds and trackbacks are left alone, and so is any response whose status another plugin already changed.
 * The post is published, on a publicly viewable post type, and has no password. Drafts, pending, scheduled, private and password-protected posts are never served, even to signed-in users.
 * The `Accept` header prefers `text/markdown` over `text/html` (q-values per RFC 9110). A browser header, `*/*`, no header or `application/json` all get HTML. The plugin never answers 406.
 

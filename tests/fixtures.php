@@ -53,6 +53,8 @@ am_fixture('am-removed', 'CPT with support removed', $p('amRemovedMarker'), ['po
 am_fixture('am-internal', 'Non-public CPT', $p('amInternalMarker'), ['post_type' => 'am_internal']);
 am_fixture('am-blocked', 'Blocked by the allow filter', $p('amBlockedMarker'));
 am_fixture('am-throws', 'Output filter throws', $p('amThrowsMarker'));
+am_fixture('am-noisy', 'Noisy', $p('amNoisyMarker'));
+am_fixture('am-cacheable-throws', 'Cacheable filter throws', $p('amCacheableThrowsMarker'));
 
 // Non-public content.
 am_fixture('am-draft', 'Draft', $p('amDraftMarker'), ['post_status' => 'draft']);

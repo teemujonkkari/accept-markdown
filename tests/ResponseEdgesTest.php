@@ -16,6 +16,34 @@ it('lets the output filter change the Markdown', function (): void {
     expect(markdown('/am-post/')->body)->toEndWith("amFooterMarker\n");
 });
 
+it('discards stray output printed while rendering', function (): void {
+    $response = markdown('/am-noisy/');
+
+    expect($response->isMarkdown())->toBeTrue()
+        ->and($response->header('x-content-type-options'))->toBe('nosniff')
+        ->and($response->header('content-security-policy'))->toBe("default-src 'none'; sandbox")
+        ->and($response->body)->toStartWith("# Noisy\n\n")->toContain('amNoisyMarker')->not->toContain('amStrayOutputMarker');
+});
+
+it('falls back to the normal HTML page when the cacheable filter throws', function (): void {
+    $response = markdown('/am-cacheable-throws/');
+
+    expect($response->status)->toBe(200)
+        ->and($response->isMarkdown())->toBeFalse()
+        ->and($response->body)->toContain('amCacheableThrowsMarker')->not->toContain('amCacheableExceptionMarker');
+});
+
+it('leaves a response alone when an earlier hook changed its status', function (): void {
+    $response = markdown('/am-post/?am_test=forbidden');
+
+    expect($response->status)->toBe(403)
+        ->and($response->isMarkdown())->toBeFalse();
+});
+
+it('leaves trackback URLs alone', function (): void {
+    expect(markdown('/am-post/trackback/')->isMarkdown())->toBeFalse();
+});
+
 it('falls back to the normal HTML page when rendering throws', function (): void {
     $response = markdown('/am-throws/');
 

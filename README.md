@@ -90,7 +90,8 @@ A request gets Markdown only when every one of these is true:
 |---|---|
 | Method is `GET` or `HEAD` | Form posts and other methods behave as before |
 | Not admin, REST, AJAX, cron or XML-RPC | The back end and APIs are never touched |
-| Not a feed, preview or embed | Feeds, comment feeds, `/embed/` and previews stay as they are |
+| Not a feed, preview, embed or trackback | Feeds, comment feeds, `/embed/`, `/trackback/` and previews stay as they are |
+| Status still 200, no headers sent | A gate that set 403 and lets the template show a message keeps its response |
 | The main query is a single post, page or CPT entry | Archives, search and listings are out of scope |
 | Post status is exactly `publish` | Drafts, pending, scheduled and private posts never leak, even to signed-in users |
 | The post type is publicly viewable | Internal post types can never be exposed |
@@ -268,7 +269,7 @@ The guiding rule: **the Markdown never exposes anything the public HTML page doe
 - Rendered HTML passes through the same post kses rules WordPress uses for untrusted authors, even when the content was written by a user with `unfiltered_html`.
 - Non-content elements are removed with their contents before conversion.
 - HTML comments and block delimiters are dropped.
-- Any exception during rendering falls back silently to the normal HTML response, with no error details in the body.
+- Any exception during rendering, including from the output and cacheable filters, falls back silently to the normal HTML response, with no error details in the body. Everything is decided before the first header is sent, and anything printed while rendering is discarded, so stray output cannot break the headers or reach the body.
 - The plugin creates no options, tables, cron jobs, rewrite rules or admin screens. The one site transient (the cached update check, `accept_markdown_release`) expires by itself, so there is nothing to clean up on uninstall.
 
 ## Caching
