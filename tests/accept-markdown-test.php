@@ -32,14 +32,19 @@ add_action('init', 'am_test_register');
 add_filter('the_content', fn (string $content): string => $content.'<p>amTheContentMarker</p>');
 
 // Access gates like membership plugins': posts tagged am-members show signed-out visitors a teaser through
-// the_content, and am-members-loop is rewritten in the loop through the_post, as WooCommerce Memberships does.
+// the_content, and am-members-loop is rewritten in the query results through the_posts. (A the_post action is
+// too late: setup_postdata() fills the content globals before it fires.)
 add_filter('the_content', fn (string $content): string => has_term('am-members', 'post_tag') && ! is_user_logged_in()
     ? '<p>amTeaserMarker</p>'
     : $content);
-add_action('the_post', function (WP_Post $post): void {
-    if ($post->post_name === 'am-members-loop' && ! is_user_logged_in()) {
-        $post->post_content = '<p>amTeaserMarker</p>';
+add_filter('the_posts', function (array $posts): array {
+    foreach ($posts as $post) {
+        if ($post->post_name === 'am-members-loop' && ! is_user_logged_in()) {
+            $post->post_content = '<p>amTeaserMarker</p>';
+        }
     }
+
+    return $posts;
 });
 add_filter('render_block', fn (string $html, array $block): string => str_contains($block['attrs']['className'] ?? '', 'am-render')
     ? do_shortcode($html).'<p>amRenderBlockMarker</p>'

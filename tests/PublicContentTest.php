@@ -33,7 +33,7 @@ it('reaches the non-viewable CPT post as HTML, so the check above is real', func
     expect(browser('/?am_test=internal')->body)->toContain('amInternalMarker');
 });
 
-it('honours content gates on the_content and the_post, signed in or not', function (string $path, string $marker): void {
+it('honours content gates on the_content and the_posts, signed in or not', function (string $path, string $marker): void {
     $jar = signIn();
 
     expect(browser($path, $jar)->body)->toContain($marker)
@@ -45,7 +45,7 @@ it('honours content gates on the_content and the_post, signed in or not', functi
     }
 })->with([
     'the_content gate' => ['/am-members/', 'amMembersBodyMarker'],
-    'the_post gate' => ['/am-members-loop/', 'amMembersLoopMarker'],
+    'the_posts gate' => ['/am-members-loop/', 'amMembersLoopMarker'],
     'gated post inside a Query Loop' => ['/am-members-index/', 'amMembersBodyMarker'],
 ]);
 

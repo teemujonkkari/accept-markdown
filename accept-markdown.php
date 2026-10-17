@@ -90,7 +90,7 @@ function eligiblePost(): ?WP_Post
 
 /**
  * The content through the real the_content chain in the main loop, exactly as the signed-out HTML page gets it, so
- * every access gate a plugin hooks on the_post or the_content applies, inside nested blocks too. Only comments are
+ * every access gate a plugin hooks on the query or the_content applies, inside nested blocks too. Only comments are
  * switched off: comment blocks render empty and comment queries return nothing. Both are restored and the loop is
  * rewound afterwards, so the HTML fallback is unaffected.
  */
