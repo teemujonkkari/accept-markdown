@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Accept Markdown
  * Description: Serves a public post as Markdown when the request's Accept header prefers text/markdown.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Requires at least: 7.1.3
  * Requires PHP: 8.4
  * License: MIT
