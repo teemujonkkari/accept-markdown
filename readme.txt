@@ -58,7 +58,7 @@ Opt any type out, including posts and pages:
 
     add_action('init', fn () => remove_post_type_support('page', 'accept-markdown'));
 
-Three filters: `accept_markdown/allowed` decides per post (it cannot bypass the hard checks), `accept_markdown/output` changes the final Markdown string, and `accept_markdown/cacheable` returning false marks the response `no-store` for sites behind a cache that ignores `Vary`.
+Two filters: `accept_markdown/allowed` decides per post (it cannot bypass the hard checks) and `accept_markdown/output` changes the final Markdown string.
 
 Full documentation, the specification and the test suite are on [GitHub](https://github.com/teemujonkkari/accept-markdown).
 
@@ -94,13 +94,16 @@ Because the plugin renders through the real `the_content` chain, the same one th
 
 = Will my cache serve Markdown to browsers? =
 
-Not with a standards-compliant HTTP cache: every response carries `Vary: Accept`, so the cache stores Markdown and HTML separately and serves each to the clients that asked for it. Seravo's Nginx cache does this without configuration. WordPress page-cache plugins key on the URL alone, so the plugin defines `DONOTCACHEPAGE` to keep Markdown out of them. Behind a CDN or proxy that stores HTML and ignores `Vary` (Cloudflare with a cache-everything rule, for example), add `add_filter('accept_markdown/cacheable', '__return_false');` before activating: until that filter is in place, such a cache stores a Markdown body under the page URL and serves it to visitors.
+Not with a standards-compliant HTTP cache: every response carries `Vary: Accept`, so the cache stores Markdown and HTML separately and serves each to the clients that asked for it. Seravo's Nginx cache does this without configuration. WordPress page-cache plugins key on the URL alone, so the plugin defines `DONOTCACHEPAGE` to keep Markdown out of them. The plugin supports only caches that honour `Vary`. A CDN or proxy that stores HTML and ignores it (Cloudflare with a cache-everything rule, for example) will serve Markdown to visitors; configure it to bypass or key on `Accept`, or do not use the plugin behind it.
 
 = Is there a `.md` URL or a query parameter? =
 
 No. The only trigger is the `Accept` header. There are no new URLs or rewrite rules.
 
 == Changelog ==
+
+= 0.5.0 =
+* Removed the accept_markdown/cacheable filter and the no-store opt-out. The plugin supports only HTTP caches that honour Vary, Seravo's Nginx among them; a cache that ignores Vary usually ignores Cache-Control too, so the opt-out could not promise anything. Sites that added the filter can remove it.
 
 = 0.4.1 =
 * Security: a draft sharing a published post's slug, with an earlier date, could replace the published post's Markdown body (reported by an external audit). The singular query must now hold exactly the eligible post, otherwise the URL gets the HTML page and no Markdown alternate link, and only the eligible post's ID is ever converted.

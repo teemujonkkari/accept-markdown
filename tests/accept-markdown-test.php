@@ -65,14 +65,6 @@ add_filter('accept_markdown/allowed', fn (bool $allowed, WP_Post $post): bool =>
     default => $allowed,
 }, 10, 2);
 
-add_filter('accept_markdown/cacheable', function (bool $cacheable, WP_Post $post): bool {
-    if ($post->post_name === 'am-cacheable-throws') {
-        throw new RuntimeException('amCacheableExceptionMarker');
-    }
-
-    return $cacheable && $post->post_name !== 'am-page';
-}, 10, 2);
-
 // Stray output while am-noisy renders, as a careless content filter does; it must never reach the Markdown response.
 add_filter('the_content', function (string $content): string {
     if (get_post()?->post_name === 'am-noisy') {

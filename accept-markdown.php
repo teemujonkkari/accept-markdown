@@ -284,19 +284,15 @@ add_action('template_redirect', function (): void {
     ob_start();
     try {
         $markdown = (string) apply_filters('accept_markdown/output', render($post), $post);
-        // Cached like the HTML page, keyed by Vary: Accept. Opt out behind a cache that ignores Vary.
-        $cacheable = (bool) apply_filters('accept_markdown/cacheable', true, $post);
     } catch (\Throwable) {
         return;
     } finally {
         ob_end_clean();
     }
 
+    // No Cache-Control of its own: the HTTP cache stores Markdown like the HTML page, as a Vary: Accept variant.
     status_header(200);
     header('Content-Type: text/markdown; charset='.get_option('blog_charset'));
-    if (! $cacheable) {
-        header('Cache-Control: no-store, private');
-    }
     header('X-Content-Type-Options: nosniff');
     header("Content-Security-Policy: default-src 'none'; sandbox");
     header('X-Robots-Tag: noindex');

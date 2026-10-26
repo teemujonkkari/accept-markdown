@@ -29,6 +29,7 @@ It is built for AI agents, LLM tooling and scripts that want a post's content wi
 
 - PHP 8.4 or later, with the `dom` and `xml` extensions
 - WordPress 7.1.3 or later
+- An HTTP cache in front of the site that honours `Vary`, or none. Seravo's Nginx cache does. See [Caching](#caching).
 
 WordPress refuses to activate the plugin on older versions, based on the plugin header.
 
@@ -39,12 +40,6 @@ Copy `accept-markdown.php`, `readme.txt` and `vendor_prefixed/` into `wp-content
 The plugin is not in the WordPress.org plugin directory, but it updates through the normal WordPress updater: the `Update URI` header makes WordPress ask the plugin instead of the directory, and the plugin checks the latest [GitHub release](https://github.com/teemujonkkari/accept-markdown/releases) twice a day. Only a release zip from this repository is ever offered; the package URL is built from the tag name and must match one of the release's assets. The "View details" window shows the release notes.
 
 Posts and pages are served as Markdown straight away. Custom post types are not, until they opt in (see [Post types](#post-types)).
-
-**One required step for sites behind a cache that stores HTML and ignores `Vary`** (Cloudflare with a cache-everything rule, Varnish or Nginx configured to ignore `Vary`): add this filter before activating, or that cache will store a Markdown body under the page URL and serve it to visitors until you do. Standards-compliant caches, Seravo's Nginx among them, need nothing. See [Caching](#caching).
-
-```php
-add_filter('accept_markdown/cacheable', '__return_false');
-```
 
 To check it works:
 
@@ -176,7 +171,7 @@ A Markdown response is `200` with these headers:
 |---|---|---|
 | `Content-Type` | `text/markdown; charset=<blog charset>` | Lets clients decode it |
 | `Vary` | `Accept` | Caches key on the Accept header |
-| `Cache-Control` | none, like the HTML page | The HTTP cache treats both representations the same; `no-store, private` when the `accept_markdown/cacheable` filter returns false |
+| `Cache-Control` | none, like the HTML page | The HTTP cache treats both representations the same |
 | `X-Content-Type-Options` | `nosniff` | Browsers never sniff it as HTML |
 | `Content-Security-Policy` | `default-src 'none'; sandbox` | Nothing in it can run, even if a browser renders it |
 | `X-Robots-Tag` | `noindex` | Search engines do not index a duplicate |
@@ -201,7 +196,7 @@ Every other front-end response gets `Vary: Accept` added and is otherwise unchan
 
 ## Configuration for developers
 
-There are no settings. Behaviour is changed with standard WordPress calls and three filters.
+There are no settings. Behaviour is changed with standard WordPress calls and two filters.
 
 ### Post types
 
@@ -258,14 +253,6 @@ add_filter('accept_markdown/output', function (string $markdown, WP_Post $post):
 
 If the filter throws, the visitor gets the normal HTML page.
 
-### `accept_markdown/cacheable`
-
-Decides whether the HTTP cache may store the Markdown response. Receives `true` and the post. Return false behind a CDN that ignores `Vary` (for example Cloudflare with a cache-everything rule), and the response is sent with `Cache-Control: no-store, private`.
-
-```php
-add_filter('accept_markdown/cacheable', '__return_false');
-```
-
 ## Security model
 
 The guiding rule: **the Markdown never exposes anything the public HTML page does not already expose.**
@@ -278,51 +265,28 @@ The guiding rule: **the Markdown never exposes anything the public HTML page doe
 - Rendered HTML passes through the same post kses rules WordPress uses for untrusted authors, even when the content was written by a user with `unfiltered_html`.
 - Non-content elements are removed with their contents before conversion.
 - HTML comments and block delimiters are dropped.
-- Any exception during rendering, including from the output and cacheable filters, falls back silently to the normal HTML response, with no error details in the body. Everything is decided before the first header is sent, and anything printed while rendering is discarded, so stray output cannot break the headers or reach the body.
+- Any exception during rendering, including from the output filter, falls back silently to the normal HTML response, with no error details in the body. Everything is decided before the first header is sent, and anything printed while rendering is discarded, so stray output cannot break the headers or reach the body.
 - The plugin creates no options, tables, cron jobs, rewrite rules or admin screens. The one site transient (the cached update check, `accept_markdown_release`) expires by itself, so there is nothing to clean up on uninstall.
 
 ## Caching
 
-The same URL serves two representations, so caches must not mix them up:
+The same URL serves two representations, and `Vary: Accept` is what keeps them apart:
 
-- Every front-end response carries `Vary: Accept`, which standards-compliant caches honour. They store Markdown and HTML as separate variants of the URL and serve each to the clients that asked for it, so Markdown is cached exactly like the HTML page. The plugin sends no `Cache-Control` of its own.
-- On Markdown requests the plugin defines `DONOTCACHEPAGE`, which WordPress page-cache plugins such as WP Super Cache respect. They key on the URL alone, so they must not store Markdown at all.
-- Behind a cache that stores HTML and ignores `Vary`, the required step in [Installation](#installation) (`accept_markdown/cacheable` returning false) makes Markdown `Cache-Control: no-store, private` instead, so that cache never stores it.
+- Every front-end response carries `Vary: Accept`. A standards-compliant HTTP cache stores Markdown and HTML as separate variants of the URL and serves each to the clients that asked for it, so Markdown is cached exactly like the HTML page. The plugin sends no `Cache-Control` of its own.
+- On Markdown requests the plugin defines `DONOTCACHEPAGE`, which WordPress page-cache plugins such as WP Super Cache respect. They key on the URL alone, so they must not store Markdown at all. Such a plugin can still answer a Markdown request with a cached HTML page, because it runs before this plugin loads.
 
-The result on Seravo, the primary hosting target: the first Markdown request for a post hits PHP, every later one is served by Nginx until the page is purged, and browsers never see a Markdown variant.
+On Seravo, the primary hosting target: the first Markdown request for a post hits PHP, every later one is served by Nginx until the page is purged, and browsers never see a Markdown variant. Verified on a production site.
 
-### Cache compatibility
+The plugin supports only caches that honour `Vary`. A CDN or proxy that stores HTML and ignores `Vary` (Cloudflare with a cache-everything rule, Varnish or Nginx configured to ignore it) will store a Markdown body under the page URL and serve it to visitors. The plugin cannot tell from inside a request what the cache does with its headers, and such caches commonly ignore `Cache-Control` too, so there is no header it could send instead. Configure that cache to bypass or key on `Accept`, or do not use the plugin behind it.
 
-Two questions for any cache: does it keep the two representations apart (`Vary: Accept`), and does it answer before WordPress runs?
-
-| Cache | Markdown cached | Markdown to visitors | HTML to agents | Notes |
-|---|---|---|---|---|
-| Nginx cache on Seravo | Yes | Never | No | Honours the standard `Vary` header. Tested on a production site, works without configuration. |
-| WP Super Cache and other `advanced-cache.php` plugins | No | Never | Possible | They answer before `plugins_loaded`, so a cached HTML page is served to Markdown requests. `DONOTCACHEPAGE` keeps Markdown out of the cache. |
-| LiteSpeed Cache (LSCache) | No | Never | Yes, until configured | The server answers from its cache before PHP runs and does not key on `Vary: Accept`. The plugin respects `DONOTCACHEPAGE`, so Markdown is never stored. Add the rewrite rule below. |
-| Varnish, Nginx FastCGI cache with `Vary` ignored, other server-level caches | Depends | Possible | Possible | If the cache ignores `Vary`, the cacheable opt-out from Installation is required. Also bypass the cache when the `Accept` header mentions `text/markdown`, or configure the cache to key on `Accept`. |
-| Cloudflare and CDNs that ignore `Vary` | Depends | Possible | Possible | Cloudflare does not cache HTML by default, so there is nothing to mix up. With a cache-everything rule, the cacheable opt-out from Installation is required. Also tell the CDN to bypass or vary on `Accept`. |
-
-**LiteSpeed Cache.** Add this to the site's `.htaccess`, above the WordPress block:
-
-```apache
-<IfModule LiteSpeed>
-RewriteEngine On
-RewriteCond %{HTTP:Accept} text/markdown [NC]
-RewriteRule .* - [E=Cache-Control:no-cache]
-</IfModule>
-```
-
-Requests whose `Accept` header mentions Markdown bypass the cache and reach WordPress, which negotiates as usual. Markdown is not stored by LiteSpeed (it respects `DONOTCACHEPAGE`), so a bypass is enough. Requests that mention Markdown with a low preference also bypass the cache and get uncached HTML, which is harmless.
-
-To verify any cache, request the same URL twice as a browser and once as an agent, and compare the cache status header (`X-LiteSpeed-Cache`, `X-Cache`, `X-Proxy-Cache` or similar) and the content type:
+To verify a cache, request the same URL twice as a browser and once as an agent, and compare the cache status header (`X-Cache`, `X-Proxy-Cache` or similar) and the content type:
 
 ```bash
 curl -sI https://example.com/post/ | grep -i -E 'x-.*cache|content-type'
 curl -sI -H 'Accept: text/markdown' https://example.com/post/ | grep -i -E 'x-.*cache|content-type'
 ```
 
-The browser request should turn into a cache hit on the second run. The agent request should never be a hit and should report `text/markdown`.
+The browser request should turn into a cache hit on the second run and stay `text/html`. The agent request should report `text/markdown`, and on a `Vary`-honouring cache it too becomes a hit on repeat.
 
 ## Known trade-offs
 
@@ -330,7 +294,7 @@ The browser request should turn into a cache hit on the second run. The agent re
 - **Dynamic blocks are kept.** Latest Posts, Query Loops and similar blocks render as on the public page. Because rendering is signed out, they only show public content.
 - **Third-party `render_block` filters run.** Their output can reach the Markdown. That output already appears on the public HTML page.
 - **Embeds render as on the page.** An embed whose markup is only an iframe (for example YouTube) is removed with the iframe and leaves nothing. Embeds with a fallback blockquote keep their text and link.
-- **Caches that answer early can serve HTML to agents.** A cache that serves from `advanced-cache.php`, or a server-level cache such as LiteSpeed that answers before PHP runs, responds before plugins load, so a Markdown request can get a cached HTML page. The reverse never happens, because Markdown is never stored. See [Cache compatibility](#cache-compatibility).
+- **Caches that answer early can serve HTML to agents.** A cache that serves from `advanced-cache.php`, or a server-level cache that answers before PHP runs without keying on `Accept`, responds before plugins load, so a Markdown request can get a cached HTML page. The reverse never happens with a page-cache plugin, because `DONOTCACHEPAGE` keeps Markdown out of it. See [Caching](#caching).
 - **A Markdown request whose rendering throws** falls back to the signed-out version of the HTML page.
 
 ## What it does not do
@@ -430,7 +394,7 @@ Versions follow semver from the commit types: `feat` bumps minor, `fix`, `docs` 
 
 The tag triggers `.github/workflows/release.yml`, which verifies the version, zips `accept-markdown.php`, `readme.txt`, `LICENSE` and `vendor_prefixed/` under an `accept-markdown/` folder and publishes a GitHub release with the zip attached. Install it by uploading the zip in WordPress or unpacking it into `wp-content/plugins/`.
 
-The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks all three filters, adds a login wall for `?am_test=gated`, a 403 for `?am_test=forbidden`, a stray-output content filter and two membership-style content gates, and turns off canonical redirects.
+The test mu-plugin is for test sites only. It registers test post types and a shortcode, hooks both filters, adds a login wall for `?am_test=gated`, a 403 for `?am_test=forbidden`, a stray-output content filter and two membership-style content gates, and turns off canonical redirects.
 
 ## License
 

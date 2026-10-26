@@ -25,14 +25,6 @@ it('discards stray output printed while rendering', function (): void {
         ->and($response->body)->toStartWith("# Noisy\n\n")->toContain('amNoisyMarker')->not->toContain('amStrayOutputMarker');
 });
 
-it('falls back to the normal HTML page when the cacheable filter throws', function (): void {
-    $response = markdown('/am-cacheable-throws/');
-
-    expect($response->status)->toBe(200)
-        ->and($response->isMarkdown())->toBeFalse()
-        ->and($response->body)->toContain('amCacheableThrowsMarker')->not->toContain('amCacheableExceptionMarker');
-});
-
 it('leaves a response alone when an earlier hook changed its status', function (): void {
     $response = markdown('/am-post/?am_test=forbidden');
 

@@ -8,17 +8,13 @@ it('serves a published post as Markdown with the full header set', function (): 
     expect($response->status)->toBe(200)
         ->and($response->header('content-type'))->toBe('text/markdown; charset=UTF-8')
         ->and($response->header('vary'))->toContain('Accept')
-        ->and((string) $response->header('cache-control'))->not->toContain('no-store')
+        ->and($response->header('cache-control'))->toBe(browser('/am-post/')->header('cache-control'))
         ->and($response->header('x-content-type-options'))->toBe('nosniff')
         ->and($response->header('content-security-policy'))->toBe("default-src 'none'; sandbox")
         ->and($response->header('x-robots-tag'))->toBe('noindex')
         ->and($response->body)->toStartWith("# Accept Markdown Post\n\n")
         ->toContain('## A heading')
         ->toContain('amPostMarker body text.');
-});
-
-it('sends no-store when the cacheable filter says no', function (): void {
-    expect(markdown('/am-page/')->header('cache-control'))->toBe('no-store, private');
 });
 
 it('serves the normal HTML page with Vary: Accept to browsers', function (): void {
