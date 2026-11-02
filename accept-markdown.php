@@ -23,52 +23,50 @@ use AcceptMarkdown\Vendor\League\HTMLToMarkdown\Converter\TableConverter;
 use AcceptMarkdown\Vendor\League\HTMLToMarkdown\HtmlConverter;
 use WP_Post;
 
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
-require_once __DIR__.'/vendor_prefixed/vendor/autoload.php';
+require_once __DIR__ . '/vendor_prefixed/vendor/autoload.php';
 
 const NON_CONTENT = 'script|style|iframe|noscript|template|form|object|embed|svg';
-const REPO = 'teemujonkkari/accept-markdown';
+const REPO        = 'teemujonkkari/accept-markdown';
 
 /**
  * q-value of the most specific Accept entry matching $type (exact > type/* > *\/*), per RFC 9110.
  *
  * @param list<string> $entries lowercased Accept entries
  */
-function quality(array $entries, string $type): float
-{
-    $major = strstr($type, '/', true);
-    [$best, $q] = [-1, 0.0];
+function quality( array $entries, string $type ): float {
+	$major      = strstr( $type, '/', true );
+	[$best, $q] = array( -1, 0.0 );
 
-    foreach ($entries as $entry) {
-        $params = array_map(trim(...), explode(';', $entry));
-        $specificity = match (array_shift($params)) {
-            $type => 2,
-            "$major/*" => 1,
-            '*/*' => 0,
-            default => -1,
-        };
-        $qParam = array_find($params, fn (string $param): bool => preg_match('/^q\s*=/', $param) === 1);
-        $entryQ = $qParam === null ? 1.0 : max(0.0, min(1.0, (float) trim(substr($qParam, strpos($qParam, '=') + 1))));
+	foreach ( $entries as $entry ) {
+		$params      = array_map( trim( ... ), explode( ';', $entry ) );
+		$specificity = match ( array_shift( $params ) ) {
+			$type => 2,
+			"$major/*" => 1,
+			'*/*' => 0,
+			default => -1,
+		};
+		$qParam = array_find( $params, fn ( string $param ): bool => preg_match( '/^q\s*=/', $param ) === 1 );
+		$entryQ = $qParam === null ? 1.0 : max( 0.0, min( 1.0, (float) trim( substr( $qParam, strpos( $qParam, '=' ) + 1 ) ) ) );
 
-        if ($specificity > $best || ($specificity === $best && $best >= 0 && $entryQ > $q)) {
-            [$best, $q] = [$specificity, $entryQ];
-        }
-    }
+		if ( $specificity > $best || ( $specificity === $best && $best >= 0 && $entryQ > $q ) ) {
+			[$best, $q] = array( $specificity, $entryQ );
+		}
+	}
 
-    return $q;
+	return $q;
 }
 
-function wantsMarkdown(): bool
-{
-    $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
-    $entries = explode(',', $accept);
-    if ($accept === '' || strlen($accept) > 4096 || count($entries) > 32) {
-        return false;
-    }
-    $markdown = quality($entries, 'text/markdown');
+function wantsMarkdown(): bool {
+	$accept  = strtolower( (string) ( $_SERVER['HTTP_ACCEPT'] ?? '' ) );
+	$entries = explode( ',', $accept );
+	if ( $accept === '' || strlen( $accept ) > 4096 || count( $entries ) > 32 ) {
+		return false;
+	}
+	$markdown = quality( $entries, 'text/markdown' );
 
-    return $markdown > 0 && $markdown > quality($entries, 'text/html');
+	return $markdown > 0 && $markdown > quality( $entries, 'text/html' );
 }
 
 /**
@@ -76,21 +74,20 @@ function wantsMarkdown(): bool
  * query must hold exactly one post: core checks the status of the first post only and a draft may share a published
  * post's slug, so a URL with a second post gets neither Markdown nor the alternate link until the collision is gone.
  */
-function eligiblePost(): ?WP_Post
-{
-    if (! in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)
-        || is_admin() || wp_doing_ajax() || wp_doing_cron() || wp_is_serving_rest_request() || (defined('XMLRPC_REQUEST') && XMLRPC_REQUEST)
-        || is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular() || $GLOBALS['wp_query']->post_count !== 1
-        || http_response_code() !== 200) {
-        return null;
-    }
+function eligiblePost(): ?WP_Post {
+	if ( ! in_array( $_SERVER['REQUEST_METHOD'] ?? '', array( 'GET', 'HEAD' ), true )
+		|| is_admin() || wp_doing_ajax() || wp_doing_cron() || wp_is_serving_rest_request() || ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST )
+		|| is_feed() || is_preview() || is_embed() || is_trackback() || ! is_singular() || $GLOBALS['wp_query']->post_count !== 1
+		|| http_response_code() !== 200 ) {
+		return null;
+	}
 
-    $post = get_queried_object();
-    if (! $post instanceof WP_Post || $post->post_status !== 'publish' || ! is_post_type_viewable($post->post_type) || $post->post_password !== '') {
-        return null;
-    }
+	$post = get_queried_object();
+	if ( ! $post instanceof WP_Post || $post->post_status !== 'publish' || ! is_post_type_viewable( $post->post_type ) || $post->post_password !== '' ) {
+		return null;
+	}
 
-    return apply_filters('accept_markdown/allowed', post_type_supports($post->post_type, 'accept-markdown'), $post) ? $post : null;
+	return apply_filters( 'accept_markdown/allowed', post_type_supports( $post->post_type, 'accept-markdown' ), $post ) ? $post : null;
 }
 
 /**
@@ -100,77 +97,85 @@ function eligiblePost(): ?WP_Post
  * comment queries return nothing. Both are restored and the loop is rewound afterwards, so the HTML fallback is
  * unaffected.
  */
-function renderContent(WP_Post $post): string
-{
-    global $wp_query;
-    $noComments = fn (mixed $result, \WP_Comment_Query $query): array|int => $query->query_vars['count'] ? 0 : [];
-    add_filter('comments_pre_query', $noComments, PHP_INT_MAX, 2);
+function renderContent( WP_Post $post ): string {
+	global $wp_query;
+	$noComments = fn ( mixed $result, \WP_Comment_Query $query ): array|int => $query->query_vars['count'] ? 0 : array();
+	add_filter( 'comments_pre_query', $noComments, PHP_INT_MAX, 2 );
 
-    $commentBlocks = array_filter(\WP_Block_Type_Registry::get_instance()->get_all_registered(), fn (\WP_Block_Type $type): bool => str_contains($type->name, 'comment'));
-    $callbacks = array_map(fn (\WP_Block_Type $type): mixed => $type->render_callback, $commentBlocks);
-    array_walk($commentBlocks, fn (\WP_Block_Type $type) => $type->render_callback = '__return_empty_string');
+	$commentBlocks = array_filter( \WP_Block_Type_Registry::get_instance()->get_all_registered(), fn ( \WP_Block_Type $type ): bool => str_contains( $type->name, 'comment' ) );
+	$callbacks     = array_map( fn ( \WP_Block_Type $type ): mixed => $type->render_callback, $commentBlocks );
+	array_walk( $commentBlocks, fn ( \WP_Block_Type $type ) => $type->render_callback = '__return_empty_string' );
 
-    try {
-        $html = '';
-        while (have_posts()) {
-            the_post();
-            if (get_the_ID() === $post->ID) {
-                $html = apply_filters('the_content', get_the_content());
-            }
-        }
+	try {
+		$html = '';
+		while ( have_posts() ) {
+			the_post();
+			if ( get_the_ID() === $post->ID ) {
+				$html = apply_filters( 'the_content', get_the_content() );
+			}
+		}
 
-        return $html;
-    } finally {
-        remove_filter('comments_pre_query', $noComments, PHP_INT_MAX);
-        array_walk($commentBlocks, fn (\WP_Block_Type $type, string $name) => $type->render_callback = $callbacks[$name]);
-        $wp_query->rewind_posts();
-        $wp_query->in_the_loop = false;
-        wp_reset_postdata();
-    }
+		return $html;
+	} finally {
+		remove_filter( 'comments_pre_query', $noComments, PHP_INT_MAX );
+		array_walk( $commentBlocks, fn ( \WP_Block_Type $type, string $name ) => $type->render_callback = $callbacks[ $name ] );
+		$wp_query->rewind_posts();
+		$wp_query->in_the_loop = false;
+		wp_reset_postdata();
+	}
 }
 
-function render(WP_Post $post): string
-{
-    $html = renderContent($post);
+function render( WP_Post $post ): string {
+	$html = renderContent( $post );
 
-    // Remove non-content elements with everything inside them: closed ones innermost first (one pass per nesting
-    // level), then everything from the first unclosed opener to the end in a single pass, so malformed markup fails
-    // closed without a pass per opener. This runs before kses because kses deletes disallowed tags but keeps the text
-    // between them.
-    do {
-        $html = preg_replace('#<('.NON_CONTENT.')\b[^>]*>(?:(?!<\1\b).)*?</\1\s*>#is', '', $html, -1, $count);
-    } while ($count > 0);
-    $html = preg_replace('#<(?:'.NON_CONTENT.')\b.*$#is', '', $html);
-    $html = wp_kses_post($html);
+	// Remove non-content elements with everything inside them: closed ones innermost first (one pass per nesting
+	// level), then everything from the first unclosed opener to the end in a single pass, so malformed markup fails
+	// closed without a pass per opener. This runs before kses because kses deletes disallowed tags but keeps the text
+	// between them.
+	do {
+		$html = preg_replace( '#<(' . NON_CONTENT . ')\b[^>]*>(?:(?!<\1\b).)*?</\1\s*>#is', '', $html, -1, $count );
+	} while ( $count > 0 );
+	$html = preg_replace( '#<(?:' . NON_CONTENT . ')\b.*$#is', '', $html );
+	$html = wp_kses_post( $html );
 
-    // Flatten <pre> so syntax-highlighter markup doesn't leak into the code fence.
-    $html = preg_replace_callback('#<pre\b[^>]*>(.*?)</pre>#is', fn (array $m): string => '<pre><code>'
-        .htmlspecialchars(html_entity_decode(strip_tags($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8')
-        .'</code></pre>', $html);
+	// Flatten <pre> so syntax-highlighter markup doesn't leak into the code fence.
+	$html = preg_replace_callback(
+		'#<pre\b[^>]*>(.*?)</pre>#is',
+		fn ( array $m ): string => '<pre><code>'
+		. htmlspecialchars( html_entity_decode( strip_tags( $m[1] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' )
+		. '</code></pre>',
+		$html
+	);
 
-    // Adjacent links with nothing between them are kept apart by CSS on the page; give them a space here.
-    $html = preg_replace('#</a>(?=<a\b)#i', '</a> ', $html);
+	// Adjacent links with nothing between them are kept apart by CSS on the page; give them a space here.
+	$html = preg_replace( '#</a>(?=<a\b)#i', '</a> ', $html );
 
-    // The converter has no <figure> handling, so an image would run into the next block.
-    $html = preg_replace(['#<(/?)figure\b#i', '#<figcaption\b#i', '#</figcaption>#i'], ['<$1div', '<br><br><p', '</p>'], $html);
+	// The converter has no <figure> handling, so an image would run into the next block.
+	$html = preg_replace( array( '#<(/?)figure\b#i', '#<figcaption\b#i', '#</figcaption>#i' ), array( '<$1div', '<br><br><p', '</p>' ), $html );
 
-    $converter = new HtmlConverter([
-        'header_style' => 'atx',
-        'strip_tags' => true,
-        'remove_nodes' => str_replace('|', ' ', NON_CONTENT),
-        'hard_break' => true,
-    ]);
-    $converter->getEnvironment()->addConverter(new TableConverter());
+	$converter = new HtmlConverter(
+		array(
+			'header_style' => 'atx',
+			'strip_tags'   => true,
+			'remove_nodes' => str_replace( '|', ' ', NON_CONTENT ),
+			'hard_break'   => true,
+		)
+	);
+	$converter->getEnvironment()->addConverter( new TableConverter() );
 
-    $title = wp_strip_all_tags(html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
+	$title = wp_strip_all_tags( html_entity_decode( $post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), true );
 
-    return '# '.$title."\n\n".preg_replace("/\n(?:[ \t]*\n){2,}/", "\n\n", trim($converter->convert($html)))."\n";
+	return '# ' . $title . "\n\n" . preg_replace( "/\n(?:[ \t]*\n){2,}/", "\n\n", trim( $converter->convert( $html ) ) ) . "\n";
 }
 
-add_action('init', function (): void {
-    add_post_type_support('post', 'accept-markdown');
-    add_post_type_support('page', 'accept-markdown');
-}, 1);
+add_action(
+	'init',
+	function (): void {
+		add_post_type_support( 'post', 'accept-markdown' );
+		add_post_type_support( 'page', 'accept-markdown' );
+	},
+	1
+);
 
 /**
  * The latest GitHub release as version, package URL and notes, cached for 12 hours; empty, and cached for one hour,
@@ -180,125 +185,160 @@ add_action('init', function (): void {
  *
  * @return array{version: string, package: string, notes: string}|array{}
  */
-function latestRelease(): array
-{
-    $release = get_site_transient('accept_markdown_release');
-    if (is_array($release)) {
-        return $release;
-    }
+function latestRelease(): array {
+	$release = get_site_transient( 'accept_markdown_release' );
+	if ( is_array( $release ) ) {
+		return $release;
+	}
 
-    $response = wp_remote_get('https://api.github.com/repos/'.REPO.'/releases/latest', ['timeout' => 5, 'headers' => ['Accept' => 'application/vnd.github+json']]);
-    $body = json_decode((string) wp_remote_retrieve_body($response), true);
-    $version = ltrim((string) ($body['tag_name'] ?? ''), 'v');
-    $package = 'https://github.com/'.REPO."/releases/download/v$version/accept-markdown-$version.zip";
-    $assets = is_array($body['assets'] ?? null) ? $body['assets'] : [];
-    $release = preg_match('/^\d+\.\d+\.\d+\z/', $version) === 1 && in_array($package, array_column($assets, 'browser_download_url'), true)
-        ? ['version' => $version, 'package' => $package, 'notes' => (string) ($body['body'] ?? '')]
-        : [];
-    // A failed or unusable call is retried sooner than a good one is re-checked.
-    set_site_transient('accept_markdown_release', $release, ($release === [] ? 1 : 12) * HOUR_IN_SECONDS);
+	$response = wp_remote_get(
+		'https://api.github.com/repos/' . REPO . '/releases/latest',
+		array(
+			'timeout' => 5,
+			'headers' => array( 'Accept' => 'application/vnd.github+json' ),
+		)
+	);
+	$body     = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+	$version  = ltrim( (string) ( $body['tag_name'] ?? '' ), 'v' );
+	$package  = 'https://github.com/' . REPO . "/releases/download/v$version/accept-markdown-$version.zip";
+	$assets   = is_array( $body['assets'] ?? null ) ? $body['assets'] : array();
+	$release  = preg_match( '/^\d+\.\d+\.\d+\z/', $version ) === 1 && in_array( $package, array_column( $assets, 'browser_download_url' ), true )
+		? array(
+			'version' => $version,
+			'package' => $package,
+			'notes'   => (string) ( $body['body'] ?? '' ),
+		)
+		: array();
+	// A failed or unusable call is retried sooner than a good one is re-checked.
+	set_site_transient( 'accept_markdown_release', $release, ( $release === array() ? 1 : 12 ) * HOUR_IN_SECONDS );
 
-    return $release;
+	return $release;
 }
 
 // Updates from GitHub releases, through the normal WordPress updater. The Update URI header makes WordPress ask this
 // filter instead of WordPress.org; WordPress compares the version itself.
-add_filter('update_plugins_github.com', function (array|false $update, array $plugin): array|false {
-    if ($plugin['UpdateURI'] !== 'https://github.com/'.REPO || ($release = latestRelease()) === []) {
-        return $update;
-    }
+add_filter(
+	'update_plugins_github.com',
+	function ( array|false $update, array $plugin ): array|false {
+		if ( $plugin['UpdateURI'] !== 'https://github.com/' . REPO || ( $release = latestRelease() ) === array() ) {
+			return $update;
+		}
 
-    return [
-        'slug' => 'accept-markdown',
-        'version' => $release['version'],
-        'url' => 'https://github.com/'.REPO.'/releases/tag/v'.$release['version'],
-        'package' => $release['package'],
-    ];
-}, 10, 2);
+		return array(
+			'slug'    => 'accept-markdown',
+			'version' => $release['version'],
+			'url'     => 'https://github.com/' . REPO . '/releases/tag/v' . $release['version'],
+			'package' => $release['package'],
+		);
+	},
+	10,
+	2
+);
 
 // The "View details" window on the Plugins screen, which would otherwise ask WordPress.org about this slug.
-add_filter('plugins_api', function (mixed $result, string $action, object $args): mixed {
-    if ($action !== 'plugin_information' || ($args->slug ?? null) !== 'accept-markdown' || ($release = latestRelease()) === []) {
-        return $result;
-    }
-    $header = get_file_data(__FILE__, ['name' => 'Plugin Name', 'description' => 'Description']);
+add_filter(
+	'plugins_api',
+	function ( mixed $result, string $action, object $args ): mixed {
+		if ( $action !== 'plugin_information' || ( $args->slug ?? null ) !== 'accept-markdown' || ( $release = latestRelease() ) === array() ) {
+			return $result;
+		}
+		$header = get_file_data(
+			__FILE__,
+			array(
+				'name'        => 'Plugin Name',
+				'description' => 'Description',
+			)
+		);
 
-    return (object) [
-        'name' => $header['name'],
-        'slug' => 'accept-markdown',
-        'version' => $release['version'],
-        'homepage' => 'https://github.com/'.REPO,
-        'download_link' => $release['package'],
-        'sections' => [
-            'description' => wpautop(esc_html($header['description'])),
-            'changelog' => '<h4>'.esc_html($release['version']).'</h4>'.wpautop(esc_html($release['notes'])),
-        ],
-    ];
-}, 10, 3);
+		return (object) array(
+			'name'          => $header['name'],
+			'slug'          => 'accept-markdown',
+			'version'       => $release['version'],
+			'homepage'      => 'https://github.com/' . REPO,
+			'download_link' => $release['package'],
+			'sections'      => array(
+				'description' => wpautop( esc_html( $header['description'] ) ),
+				'changelog'   => '<h4>' . esc_html( $release['version'] ) . '</h4>' . wpautop( esc_html( $release['notes'] ) ),
+			),
+		);
+	},
+	10,
+	3
+);
 
 // Same URL serves two representations. HTTP caches key on Accept; WordPress page-cache plugins cannot, so they must
 // not store Markdown under the page URL.
-add_action('plugins_loaded', function (): void {
-    if (wantsMarkdown() && ! defined('DONOTCACHEPAGE')) {
-        define('DONOTCACHEPAGE', true);
-    }
-});
+add_action(
+	'plugins_loaded',
+	function (): void {
+		if ( wantsMarkdown() && ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+	}
+);
 
-add_action('send_headers', fn () => header('Vary: Accept', false));
+add_action( 'send_headers', fn () => header( 'Vary: Accept', false ) );
 
 // The same alternate in the HTML head, next to the JSON and RSS ones WordPress already prints there.
-add_action('wp_head', function (): void {
-    if ($post = eligiblePost()) {
-        printf('<link rel="alternate" type="text/markdown" href="%s" />'."\n", esc_url(get_permalink($post)));
-    }
-});
+add_action(
+	'wp_head',
+	function (): void {
+		if ( $post = eligiblePost() ) {
+			printf( '<link rel="alternate" type="text/markdown" href="%s" />' . "\n", esc_url( get_permalink( $post ) ) );
+		}
+	}
+);
 
 // Last, so other plugins' and the theme's access gates (login walls, maintenance modes) redirect or exit first.
-add_action('template_redirect', function (): void {
-    // Something already printed output, so no header of ours can be sent: leave the response alone.
-    if (headers_sent()) {
-        return;
-    }
+add_action(
+	'template_redirect',
+	function (): void {
+		// Something already printed output, so no header of ours can be sent: leave the response alone.
+		if ( headers_sent() ) {
+			return;
+		}
 
-    $post = eligiblePost();
-    if ($post) {
-        // Tell clients that look for alternates (HEAD included) that this URL also serves Markdown.
-        header(sprintf('Link: <%s>; rel="alternate"; type="text/markdown"', get_permalink($post)), false);
-    }
-    if (! $post || ! wantsMarkdown()) {
-        return;
-    }
+		$post = eligiblePost();
+		if ( $post ) {
+			// Tell clients that look for alternates (HEAD included) that this URL also serves Markdown.
+			header( sprintf( 'Link: <%s>; rel="alternate"; type="text/markdown"', get_permalink( $post ) ), false );
+		}
+		if ( ! $post || ! wantsMarkdown() ) {
+			return;
+		}
 
-    // Render as a signed-out visitor, so dynamic blocks never list private posts. The main query already ran as the
-    // visitor, so run it again signed out: gates that decide at query time then see the same visitor as the rest of
-    // the render. The re-run must again hold exactly the eligible post, otherwise serve the HTML page.
-    global $wp_query;
-    wp_set_current_user(0);
-    $wp_query->get_posts();
-    if ($wp_query->post_count !== 1 || $wp_query->posts[0]->ID !== $post->ID) {
-        return;
-    }
+		// Render as a signed-out visitor, so dynamic blocks never list private posts. The main query already ran as the
+		// visitor, so run it again signed out: gates that decide at query time then see the same visitor as the rest of
+		// the render. The re-run must again hold exactly the eligible post, otherwise serve the HTML page.
+		global $wp_query;
+		wp_set_current_user( 0 );
+		$wp_query->get_posts();
+		if ( $wp_query->post_count !== 1 || $wp_query->posts[0]->ID !== $post->ID ) {
+			return;
+		}
 
-    // Decide everything before sending a header, and discard anything printed meanwhile, so a careless filter can
-    // neither break the headers nor leak into the body. Any exception means the normal HTML page instead.
-    ob_start();
-    try {
-        $markdown = (string) apply_filters('accept_markdown/output', render($post), $post);
-    } catch (\Throwable) {
-        return;
-    } finally {
-        ob_end_clean();
-    }
+		// Decide everything before sending a header, and discard anything printed meanwhile, so a careless filter can
+		// neither break the headers nor leak into the body. Any exception means the normal HTML page instead.
+		ob_start();
+		try {
+			$markdown = (string) apply_filters( 'accept_markdown/output', render( $post ), $post );
+		} catch ( \Throwable ) {
+			return;
+		} finally {
+			ob_end_clean();
+		}
 
-    // No Cache-Control of its own: the HTTP cache stores Markdown like the HTML page, as a Vary: Accept variant.
-    status_header(200);
-    header('Content-Type: text/markdown; charset='.get_option('blog_charset'));
-    header('X-Content-Type-Options: nosniff');
-    header("Content-Security-Policy: default-src 'none'; sandbox");
-    header('X-Robots-Tag: noindex');
+		// No Cache-Control of its own: the HTTP cache stores Markdown like the HTML page, as a Vary: Accept variant.
+		status_header( 200 );
+		header( 'Content-Type: text/markdown; charset=' . get_option( 'blog_charset' ) );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( "Content-Security-Policy: default-src 'none'; sandbox" );
+		header( 'X-Robots-Tag: noindex' );
 
-    if ($_SERVER['REQUEST_METHOD'] !== 'HEAD') {
-        echo $markdown;
-    }
-    exit;
-}, PHP_INT_MAX);
+		if ( $_SERVER['REQUEST_METHOD'] !== 'HEAD' ) {
+			echo $markdown;
+		}
+		exit;
+	},
+	PHP_INT_MAX
+);
