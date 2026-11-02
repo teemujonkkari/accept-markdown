@@ -9,7 +9,7 @@
     },
     "require-dev": {
         "humbug/php-scoper": "0.18.20",
-        "pestphp/pest": "5.3.2",
+        "pestphp/pest": "5.3.5",
         "wp-coding-standards/wpcs": "3.4.1"
     },
     "config": {
