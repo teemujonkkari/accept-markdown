@@ -319,6 +319,7 @@ vendor_prefixed/             Prefixed converter (built, shipped)
 composer.json, composer.lock Pinned dependencies and scripts
 scoper.inc.php               php-scoper config for the prefixed build
 phpunit.xml                  Test suite config
+phpcs.xml.dist               Coding standard (composer lint)
 tests/
   Pest.php                   HTTP request helpers
   *Test.php                  Black-box HTTP tests
@@ -326,7 +327,7 @@ tests/
   accept-markdown-test.php   Test mu-plugin (CPTs, shortcode, filters)
   compose.yml, htaccess      Disposable WordPress in Docker for the suite
 bin/test-site                Starts or removes the Docker test site
-.github/workflows/test.yml   Runs the suite and composer audit on PHP 8.4 and 8.5
+.github/workflows/test.yml   Runs the suite, composer audit and composer lint on PHP 8.4 and 8.5
 bin/release                  Bumps the version, commits and tags a release
 .github/workflows/release.yml  Builds the zip and publishes the GitHub release on a v* tag
 SPEC.md                      The specification
@@ -383,6 +384,15 @@ bin/test-site down    # removes the containers and the database
 `ACCEPT_MARKDOWN_TEST_PORT` changes the port, `ACCEPT_MARKDOWN_WORDPRESS_IMAGE` and `ACCEPT_MARKDOWN_CLI_IMAGE` pick other image tags (default `php8.4-apache` and `cli-php8.4`). The repo is mounted read-only into the site's plugins folder, so edits are live. CI (`.github/workflows/test.yml`) runs exactly this on PHP 8.4 and 8.5, plus `composer audit`, on every push to `main` and every pull request.
 
 The fixture file is idempotent. It finds content by slug, creates it when missing and updates it otherwise. It never deletes anything.
+
+### Lint
+
+```sh
+composer lint        # PHPCS with WordPress Coding Standards
+composer lint:fix    # fixes formatting (phpcbf)
+```
+
+`phpcs.xml.dist` applies WordPress formatting to all PHP, and WPCS's security, database, i18n and WordPress API rules to the plugin. The tests make HTTP requests, so only their formatting is checked. A deliberate exception carries `phpcs:ignore <sniff> -- <reason>` on its line. The naming sniffs (snake_case variables and functions) and a few other non-formatting rules are off for now.
 
 ### Release
 

@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<ruleset name="accept-markdown">
+	<description>WordPress Coding Standards for accept-markdown: WordPress formatting for all PHP, and security, database, i18n and WordPress API rules for the plugin. The tests make HTTP requests and only their formatting is checked.</description>
+
+	<file>accept-markdown.php</file>
+	<file>tests</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<config name="minimum_wp_version" value="7.1"/>
+
+	<!-- Formatting and code style. The excluded sniffs are not formatting and wait for a separate decision. -->
+	<rule ref="WordPress-Core">
+		<exclude name="WordPress.NamingConventions.ValidVariableName"/>
+		<exclude name="WordPress.NamingConventions.ValidFunctionName"/>
+		<exclude name="WordPress.NamingConventions.ValidHookName"/>
+		<exclude name="WordPress.Files.FileName"/>
+		<exclude name="WordPress.PHP.YodaConditions"/>
+		<exclude name="Universal.Operators.DisallowShortTernary"/>
+		<exclude name="Squiz.PHP.DisallowMultipleAssignments"/>
+		<exclude name="Generic.CodeAnalysis.AssignmentInCondition"/>
+		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames"/>
+	</rule>
+
+	<!-- Security, database, i18n and WordPress API rules: the plugin only. -->
+	<rule ref="WordPress.Security">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DateTime">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP">
+		<exclude-pattern>tests/*</exclude-pattern>
+		<exclude name="WordPress.PHP.YodaConditions"/>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="accept-markdown"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="AcceptMarkdown"/>
+				<element value="accept_markdown"/>
+			</property>
+		</properties>
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+</ruleset>

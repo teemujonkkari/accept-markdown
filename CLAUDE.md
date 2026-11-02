@@ -1,6 +1,6 @@
 # Accept Markdown
 
-Single-file WordPress plugin that serves a public post as Markdown when the `Accept` header prefers `text/markdown`. Read `SPEC.md` before changing behaviour and `README.md` for how it works. Tests are black-box HTTP requests against a running site (`README.md` > Development > Tests).
+Single-file WordPress plugin that serves a public post as Markdown when the `Accept` header prefers `text/markdown`. Read `SPEC.md` before changing behaviour and `README.md` for how it works. Tests are black-box HTTP requests against a running site (`README.md` > Development > Tests). WordPress formatting; `composer lint` (PHPCS with WPCS, `phpcs.xml.dist`) must pass, and a deliberate exception gets `phpcs:ignore <sniff> -- <reason>`.
 
 ## Agent skills
 

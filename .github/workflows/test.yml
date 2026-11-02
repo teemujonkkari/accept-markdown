@@ -1,7 +1,7 @@
 name: Tests
 
 # The HTTP suite against a disposable WordPress in Docker (tests/compose.yml), on the minimum supported PHP and the
-# latest, plus composer audit.
+# latest, plus composer audit and composer lint.
 on:
   push:
     branches: [main]
@@ -30,6 +30,8 @@ jobs:
       - run: composer install --no-interaction --no-progress
 
       - run: composer audit
+
+      - run: composer lint
 
       - name: Start the test site
         run: bin/test-site up

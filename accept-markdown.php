@@ -59,7 +59,8 @@ function quality( array $entries, string $type ): float {
 }
 
 function wantsMarkdown(): bool {
-	$accept  = strtolower( (string) ( $_SERVER['HTTP_ACCEPT'] ?? '' ) );
+	// WordPress adds slashes to $_SERVER too (wp_magic_quotes()).
+	$accept  = strtolower( sanitize_text_field( wp_unslash( (string) ( $_SERVER['HTTP_ACCEPT'] ?? '' ) ) ) );
 	$entries = explode( ',', $accept );
 	if ( $accept === '' || strlen( $accept ) > 4096 || count( $entries ) > 32 ) {
 		return false;
@@ -111,7 +112,7 @@ function renderContent( WP_Post $post ): string {
 		while ( have_posts() ) {
 			the_post();
 			if ( get_the_ID() === $post->ID ) {
-				$html = apply_filters( 'the_content', get_the_content() );
+				$html = apply_filters( 'the_content', get_the_content() ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress's own filter, applied on purpose
 			}
 		}
 
@@ -142,6 +143,7 @@ function render( WP_Post $post ): string {
 	$html = preg_replace_callback(
 		'#<pre\b[^>]*>(.*?)</pre>#is',
 		fn ( array $m ): string => '<pre><code>'
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- wp_strip_all_tags() would trim the code block's leading and trailing whitespace
 		. htmlspecialchars( html_entity_decode( strip_tags( $m[1] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' )
 		. '</code></pre>',
 		$html
@@ -272,7 +274,7 @@ add_action(
 	'plugins_loaded',
 	function (): void {
 		if ( wantsMarkdown() && ! defined( 'DONOTCACHEPAGE' ) ) {
-			define( 'DONOTCACHEPAGE', true );
+			define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- the constant page cache plugins read
 		}
 	}
 );
@@ -335,8 +337,9 @@ add_action(
 		header( "Content-Security-Policy: default-src 'none'; sandbox" );
 		header( 'X-Robots-Tag: noindex' );
 
-		if ( $_SERVER['REQUEST_METHOD'] !== 'HEAD' ) {
-			echo $markdown;
+		$is_head = isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'HEAD';
+		if ( ! $is_head ) {
+			echo $markdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a text/markdown body sent with nosniff and a sandbox CSP; escaping would corrupt the Markdown
 		}
 		exit;
 	},
