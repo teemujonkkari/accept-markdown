@@ -130,6 +130,25 @@ Matching is case-insensitive, whitespace around `=` is ignored, q-values are cla
 
 A header longer than 4096 bytes or with more than 32 entries is treated as "not Markdown", so a crafted header cannot cost noticeable CPU.
 
+Verified with 0.6.0 on a production Seravo site (2026-11-03), each header sent once with a cache-busting query string and once without, with the same result both ways:
+
+| Client | `Accept` header | Result |
+|---|---|---|
+| Claude Code fetch tool | `text/markdown, text/html, */*` | Markdown |
+| Cloudflare's documented client | `text/markdown, text/html` | Markdown |
+| Cursor | `text/markdown;q=1.0, text/x-markdown;q=0.9, text/plain;q=0.8, text/html;q=0.7, */*;q=0.1` | Markdown |
+| Firefox | `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8` | HTML |
+| Generic client | `*/*` | HTML |
+
+To check a site, loop over the headers and print the content type of each response:
+
+```bash
+for a in 'text/markdown, text/html' 'text/markdown, text/html, */*' '*/*' 'text/*'; do
+  printf '%-32s ' "$a"
+  curl -s -o /dev/null -w '%{content_type}\n' -H "Accept: $a" https://example.com/post/
+done
+```
+
 ## Rendering
 
 The content comes from the same `the_content` chain, in the main loop, that the signed-out HTML page uses. After that the plugin only removes things:
@@ -279,7 +298,7 @@ The same URL serves two representations, and `Vary: Accept` is what keeps them a
 - Every front-end response carries `Vary: Accept`. A standards-compliant HTTP cache stores Markdown and HTML as separate variants of the URL and serves each to the clients that asked for it, so Markdown is cached exactly like the HTML page. The plugin sends no `Cache-Control` of its own.
 - On Markdown requests the plugin defines `DONOTCACHEPAGE`, which WordPress page-cache plugins such as WP Super Cache respect. They key on the URL alone, so they must not store Markdown at all. Such a plugin can still answer a Markdown request with a cached HTML page, because it runs before this plugin loads.
 
-On Seravo, the primary hosting target: the first Markdown request for a post hits PHP, every later one is served by Nginx until the page is purged, and browsers never see a Markdown variant. Verified on a production site.
+On Seravo, the primary hosting target: the first Markdown request for a post hits PHP, every later one is served by Nginx until the page is purged, and browsers never see a Markdown variant. Verified on a production site, most recently with 0.6.0 (2026-11-03): repeated requests with `text/markdown, text/html` and `text/markdown, text/html, */*` were `X-Proxy-Cache: HIT` with `text/markdown`, interleaved `*/*` requests were `HIT` with `text/html`, and no HTML variant cached before the upgrade was served to the tie headers.
 
 The plugin supports only caches that honour `Vary`. A CDN or proxy that stores HTML and ignores `Vary` (Cloudflare with a cache-everything rule, Varnish or Nginx configured to ignore it) will store a Markdown body under the page URL and serve it to visitors. The plugin cannot tell from inside a request what the cache does with its headers, and such caches commonly ignore `Cache-Control` too, so there is no header it could send instead. Configure that cache to bypass or key on `Accept`, or do not use the plugin behind it.
 
