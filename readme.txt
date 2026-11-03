@@ -29,7 +29,7 @@ A post is served as Markdown only when all of these hold:
 
 * The request is a front-end GET or HEAD for a single post, page or opted-in custom post type. Admin, REST, AJAX, cron, XML-RPC, feeds, previews, embeds and trackbacks are left alone, and so is any response whose status another plugin already changed.
 * The post is published, on a publicly viewable post type, and has no password. Drafts, pending, scheduled, private and password-protected posts are never served, even to signed-in users.
-* The `Accept` header prefers `text/markdown` over `text/html` (q-values per RFC 9110). A browser header, `*/*`, no header or `application/json` all get HTML. The plugin never answers 406.
+* The `Accept` header prefers `text/markdown` over `text/html` (q-values per RFC 9110; a tie goes to Markdown when `text/markdown` is named exactly). A browser header, `*/*`, no header or `application/json` all get HTML. The plugin never answers 406.
 
 **Rendering**
 
@@ -101,6 +101,10 @@ Not with a standards-compliant HTTP cache: every response carries `Vary: Accept`
 No. The only trigger is the `Accept` header. There are no new URLs or rewrite rules.
 
 == Changelog ==
+
+= 0.6.0 =
+* An exact `text/markdown` entry now wins a q-value tie with `text/html`, so `Accept: text/markdown, text/html` (with or without `*/*`), the header common agents send, gets Markdown. `*/*`, `text/*` and browser headers still get HTML, because only an exact `text/markdown` entry counts.
+* The Accept header is unslashed and sanitized before parsing, and the code follows the WordPress coding standards (PHPCS with WPCS).
 
 = 0.5.0 =
 * Removed the accept_markdown/cacheable filter and the no-store opt-out. The plugin supports only HTTP caches that honour Vary, Seravo's Nginx among them; a cache that ignores Vary usually ignores Cache-Control too, so the opt-out could not promise anything. Sites that added the filter can remove it.

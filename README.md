@@ -107,7 +107,9 @@ The Markdown is then rendered as a **signed-out visitor**. WordPress includes pr
 The plugin compares how much the client wants `text/markdown` against `text/html`, following [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110#name-accept):
 
 1. For each of the two types, find the most specific matching entry: an exact match beats `text/*`, which beats `*/*`. Among equally specific entries, the higher q-value wins.
-2. Markdown is served only if its q-value is above 0 **and** strictly higher than HTML's. A tie goes to HTML.
+2. Markdown is served only if its q-value is above 0 **and** higher than HTML's. A tie goes to Markdown when `text/markdown` is named exactly, and to HTML when it only matches through `text/*` or `*/*`.
+
+RFC 9110 says order does not express preference, so a strict reading would give `text/markdown, text/html` to HTML. In practice naming `text/markdown` at all is the preference: agents send that header, and browsers never name `text/markdown`. The exact-match condition keeps `*/*` and `text/*` on HTML.
 
 Matching is case-insensitive, whitespace around `=` is ignored, q-values are clamped to the range 0 to 1, and a non-numeric q counts as 0.
 
@@ -118,10 +120,12 @@ Matching is case-insensitive, whitespace around `=` is ignored, q-values are cla
 | `text/html;q=0.5, text/markdown;q=0.9` | Markdown |
 | `text/*;q=0.1, text/markdown` | Markdown |
 | `text/html, text/markdown;q=0.5` | HTML |
-| `text/markdown, text/html` | HTML (tie) |
+| `text/markdown, text/html` | Markdown (exact tie) |
+| `text/markdown, text/html, */*` | Markdown (exact tie) |
+| `text/*, text/html` | HTML (wildcard tie) |
 | `text/markdown;q=0, */*` | HTML (Markdown refused) |
-| `text/markdown;q=2, text/html` | HTML (q clamped to 1, tie) |
-| A normal browser header, or `*/*` | HTML |
+| `text/html;q=2, text/markdown` | Markdown (HTML's q clamped to 1, exact tie) |
+| A normal browser header, `*/*` or `text/*` | HTML |
 | No header, or `application/json` | HTML, never a 406 |
 
 A header longer than 4096 bytes or with more than 32 entries is treated as "not Markdown", so a crafted header cannot cost noticeable CPU.

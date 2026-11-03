@@ -31,11 +31,13 @@ const NON_CONTENT = 'script|style|iframe|noscript|template|form|object|embed|svg
 const REPO        = 'teemujonkkari/accept-markdown';
 
 /**
- * q-value of the most specific Accept entry matching $type (exact > type/* > *\/*), per RFC 9110.
+ * Specificity (2 exact, 1 type/*, 0 *\/*, -1 no match) and q-value of the most specific Accept entry matching
+ * $type, per RFC 9110.
  *
  * @param list<string> $entries lowercased Accept entries
+ * @return array{int, float}
  */
-function quality( array $entries, string $type ): float {
+function quality( array $entries, string $type ): array {
 	$major      = strstr( $type, '/', true );
 	[$best, $q] = array( -1, 0.0 );
 
@@ -55,7 +57,7 @@ function quality( array $entries, string $type ): float {
 		}
 	}
 
-	return $q;
+	return array( $best, $q );
 }
 
 function wantsMarkdown(): bool {
@@ -65,9 +67,12 @@ function wantsMarkdown(): bool {
 	if ( $accept === '' || strlen( $accept ) > 4096 || count( $entries ) > 32 ) {
 		return false;
 	}
-	$markdown = quality( $entries, 'text/markdown' );
+	[$specificity, $markdown] = quality( $entries, 'text/markdown' );
+	[, $html]                 = quality( $entries, 'text/html' );
 
-	return $markdown > 0 && $markdown > quality( $entries, 'text/html' );
+	// Naming text/markdown is itself the preference (agents send `text/markdown, text/html`; browsers never name it),
+	// so an exact match wins a tie. A wildcard does not, or `*/*` alone would get Markdown.
+	return $markdown > 0 && ( $markdown > $html || ( $specificity === 2 && $markdown === $html ) );
 }
 
 /**
